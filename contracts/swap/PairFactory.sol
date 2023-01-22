@@ -95,7 +95,7 @@ contract PairFactory is IPairFactory {
     function setPartner(address _lp, address _partner, uint256 _fee) external {
         require(msg.sender == feeManager, 'not fee manager');
         require(_lp != address(0), 'address zero');
-        require(_fee <= MAX_PARTNER_FEE, 'fee too big');
+        require(_fee <= MAX_PARTNER_FEE, 'fee too high');
         lpPartner[_lp] = Partner({
             partner: _partner,
             fee: _fee
