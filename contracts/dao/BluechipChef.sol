@@ -102,7 +102,7 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
     function reset() external onlyOwner nonReentrant {
         //require((block.timestamp / DURATION) * DURATION > lastVoted[VOTER_TOKEN_ID], "TOKEN_ALREADY_VOTED_THIS_EPOCH");
         lastVoted[VOTER_TOKEN_ID] = block.timestamp;
-        _reset(VOTER_TOKEN_ID);
+        _reset();
     }
 
     function _reset() internal {
@@ -143,11 +143,11 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
             _weights[i] = votes[VOTER_TOKEN_ID][_poolVote[i]];
         }
 
-        _vote(VOTER_TOKEN_ID, _poolVote, _weights);
+        _vote(_poolVote, _weights);
     }
 
     function _vote(address[] memory _poolVote, uint256[] memory _weights) internal {
-        _reset(VOTER_TOKEN_ID);
+        _reset();
         uint _poolCnt = _poolVote.length;
         uint256 _weight = 1 * 1e18;
         uint256 _totalVoteWeight = 0;
@@ -189,7 +189,7 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
         //require((block.timestamp / DURATION) * DURATION > lastVoted[VOTER_TOKEN_ID], "TOKEN_ALREADY_VOTED_THIS_EPOCH");
         require(_poolVote.length == _weights.length);
         lastVoted[VOTER_TOKEN_ID] = block.timestamp;
-        _vote(VOTER_TOKEN_ID, _poolVote, _weights);
+        _vote(_poolVote, _weights);
     }
 
     function whitelist(address _token) public {
