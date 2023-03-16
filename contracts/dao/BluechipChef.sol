@@ -2,15 +2,13 @@
 pragma solidity 0.8.13;
 
 import './libraries/Math.sol';
-import './interfaces/IBribe.sol';
-import './interfaces/IBribeFactory.sol';
+import './interfaces/IBluechipChef.sol';
 import './interfaces/IGauge.sol';
 import './interfaces/IGaugeFactory.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IMinter.sol';
 import './interfaces/IPair.sol';
 import './interfaces/IPairFactory.sol';
-import './interfaces/IVoter.sol';
 import './interfaces/IVotingEscrow.sol';
 import "hardhat/console.sol";
 
@@ -18,17 +16,17 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 
-contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
+contract BluechipChef is IBluechipChef, Ownable, ReentrancyGuard {
 
     address public _ve; // the ve token that governs these contracts
     address public factory; // the PairFactory
     address internal base;
     address public gaugefactory;
-    address public bribefactory;
     uint internal constant DURATION = 7 days; // rewards are released over 7 days
     address public minter;
     address public governor; // should be set to an IGovernor
     address public emergencyCouncil; // credibly neutral party similar to Curve's Emergency DAO
+    address public fees_collector;
     uint internal constant VOTER_TOKEN_ID = 1;
 
     uint internal index;
@@ -41,8 +39,6 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
     mapping(address => address) public gauges; // pool => gauge
     mapping(address => uint) public gaugesDistributionTimestmap;
     mapping(address => address) public poolForGauge; // gauge => pool
-    mapping(address => address) public internal_bribes; // gauge => internal bribe (only fees)
-    mapping(address => address) public external_bribes; // gauge => external bribe (real bribes)
     mapping(address => uint256) public weights; // pool => weight
     mapping(uint => mapping(address => uint256)) public votes; // nft => pool => votes
     mapping(uint => address[]) public poolVote; // nft => pools
@@ -52,7 +48,7 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
     mapping(address => bool) public isWhitelisted;
     mapping(address => bool) public isAlive;
 
-    event GaugeCreated(address indexed gauge, address creator, address internal_bribe, address indexed external_bribe, address indexed pool);
+    event GaugeCreated(address indexed gauge, address creator, address fees_collector, address indexed pool);
     event GaugeKilled(address indexed gauge);
     event GaugeRevived(address indexed gauge);
     event Voted(address indexed voter, uint tokenId, uint256 weight);
@@ -65,15 +61,15 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
     event Detach(address indexed owner, address indexed gauge, uint tokenId);
     event Whitelisted(address indexed whitelister, address indexed token);
 
-    constructor(address __ve, address _factory, address  _gauges, address _bribes) {
+    constructor(address __ve, address _factory, address _gauges, address _fees_collector) {
         _ve = __ve;
         factory = _factory;
         base = IVotingEscrow(__ve).token();
         gaugefactory = _gauges;
-        bribefactory = _bribes;
         minter = msg.sender;
         governor = msg.sender;
         emergencyCouncil = msg.sender;
+        fees_collector = _fees_collector;
     }      
 
     function _initialize(address[] memory _tokens, address _minter) external {
@@ -119,8 +115,6 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
                 weights[_pool] -= _votes;
                 votes[VOTER_TOKEN_ID][_pool] -= _votes;
                 if (_votes > 0) {
-                    IBribe(internal_bribes[gauges[_pool]])._withdraw(uint256(_votes), VOTER_TOKEN_ID);
-                    IBribe(external_bribes[gauges[_pool]])._withdraw(uint256(_votes), VOTER_TOKEN_ID);
                     _totalWeight += _votes;
                 } else {
                     _totalWeight -= _votes;
@@ -172,8 +166,6 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
 
                 weights[_pool] += _poolWeight;
                 votes[VOTER_TOKEN_ID][_pool] += _poolWeight;
-                IBribe(internal_bribes[_gauge])._deposit(uint256(_poolWeight), VOTER_TOKEN_ID);
-                IBribe(external_bribes[_gauge])._deposit(uint256(_poolWeight), VOTER_TOKEN_ID);
                 _usedWeight += _poolWeight;
                 _totalWeight += _poolWeight;
                 emit Voted(msg.sender, VOTER_TOKEN_ID, _poolWeight);
@@ -205,22 +197,12 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
 
     function createGauge(address _pool) external returns (address) {
         require(gauges[_pool] == address(0x0), "exists");
-        address[] memory allowedRewards = new address[](3);
-        address[] memory internalRewards = new address[](2);
         bool isPair = IPairFactory(factory).isPair(_pool);
         address tokenA;
         address tokenB;
 
         if (isPair) {
             (tokenA, tokenB) = IPair(_pool).tokens();
-            allowedRewards[0] = tokenA;
-            allowedRewards[1] = tokenB;
-            internalRewards[0] = tokenA;
-            internalRewards[1] = tokenB;
-
-            if (base != tokenA && base != tokenB) {
-              allowedRewards[2] = base;
-            }
         }
 
         if (msg.sender != governor) { // gov can create for any pool, even non-Thena pairs
@@ -228,24 +210,16 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
             require(isWhitelisted[tokenA] && isWhitelisted[tokenB], "!whitelisted");
         }
 
-        string memory _type =  string.concat("Thena LP Fees: ", IERC20(_pool).symbol() );
-        address _internal_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
-
-        _type = string.concat("Thena Bribes: ", IERC20(_pool).symbol() );
-        address _external_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
-
-        address _gauge = IGaugeFactory(gaugefactory).createGaugeV2(base, _ve, _pool, address(this), _internal_bribe, _external_bribe, isPair);
+        address _gauge = IGaugeFactory(gaugefactory).createGaugeV2(base, _ve, _pool, address(this), address(0), address(0), fees_collector, isPair);
 
         IERC20(base).approve(_gauge, type(uint).max);
-        internal_bribes[_gauge] = _internal_bribe;
-        external_bribes[_gauge] = _external_bribe;
         gauges[_pool] = _gauge;
         poolForGauge[_gauge] = _pool;
         isGauge[_gauge] = true;
         isAlive[_gauge] = true;
         _updateFor(_gauge);
         pools.push(_pool);
-        emit GaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _pool);
+        emit GaugeCreated(_gauge, msg.sender, fees_collector, _pool);
         return _gauge;
     }
 
@@ -351,21 +325,6 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
         }
     }
 
-    function claimBribes(address[] memory _bribes, address[][] memory _tokens, uint _tokenId) external {
-        require(IVotingEscrow(_ve).isApprovedOrOwner(msg.sender, _tokenId));
-        for (uint i = 0; i < _bribes.length; i++) {
-            IBribe(_bribes[i]).getRewardForOwner(_tokenId, _tokens[i]);
-        }
-    }
-
-    function claimFees(address[] memory _fees, address[][] memory _tokens, uint _tokenId) external {
-        require(IVotingEscrow(_ve).isApprovedOrOwner(msg.sender, _tokenId));
-        for (uint i = 0; i < _fees.length; i++) {
-            IBribe(_fees[i]).getRewardForOwner(_tokenId, _tokens[i]);
-        }
-    }
-
-
     function distributeFees(address[] memory _gauges) external {
         for (uint i = 0; i < _gauges.length; i++) {
             if (IGauge(_gauges[i]).isForPair()){
@@ -413,11 +372,6 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
         require(success && (data.length == 0 || abi.decode(data, (bool))));
     }
 
-    function setBribeFactory(address _bribeFactory) external {
-        require(msg.sender == emergencyCouncil);
-        bribefactory = _bribeFactory;
-    }
-
     function setGaugeFactory(address _gaugeFactory) external {
         require(msg.sender == emergencyCouncil);
         gaugefactory = _gaugeFactory;
@@ -434,8 +388,6 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
         isAlive[_gauge] = false;
         claimable[_gauge] = 0;
         address _pool = poolForGauge[_gauge];
-        internal_bribes[_gauge] = address(0);
-        external_bribes[_gauge] = address(0);
         gauges[_pool] = address(0);
         poolForGauge[_gauge] = address(0);
         isGauge[_gauge] = false;
@@ -458,24 +410,15 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
         for(i; i < _pools.length; i++){
             address _pool = _pools[i];
             address _gauge = _gauges[i];
-            address tokenA;
-            address tokenB;
-            (tokenA, tokenB) = IPair(_pool).tokens();
 
-            string memory _type =  string.concat("Thena LP Fees: ", IERC20(_pool).symbol() );
-            address _internal_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
-            _type = string.concat("Thena Bribes: ", IERC20(_pool).symbol() );
-            address _external_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
             IERC20(base).approve(_gauge, type(uint).max);
-            internal_bribes[_gauge] = _internal_bribe;
-            external_bribes[_gauge] = _external_bribe;
             gauges[_pool] = _gauge;
             poolForGauge[_gauge] = _pool;
             isGauge[_gauge] = true;
             isAlive[_gauge] = true;
             _updateFor(_gauge);
             pools.push(_pool);
-            emit GaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _pool);
+            emit GaugeCreated(_gauge, msg.sender, fees_collector, _pool);
         }
     }
 
@@ -485,13 +428,5 @@ contract BluechipChef is IVoter, Ownable, ReentrancyGuard {
         IERC20(base).approve(_gauge, 0);
         IERC20(base).approve(_gauge, type(uint).max);
     }
-
-    function setNewBribe(address _gauge, address _internal, address _external) external {
-        require(msg.sender == emergencyCouncil);
-        require(isGauge[_gauge] = true);
-        internal_bribes[_gauge] = _internal;
-        external_bribes[_gauge] = _external;
-    }
-
     
 }
