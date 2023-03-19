@@ -48,7 +48,6 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
     mapping(uint => uint) public usedWeights;  // nft => total voting weight of user
     mapping(uint => uint) public lastVoted; // nft => timestamp of last vote, to ensure one vote per epoch
     mapping(address => bool) public isGauge;
-    mapping(address => bool) public isWhitelisted;
     mapping(address => bool) public isAlive;
 
     event GaugeCreated(address indexed gauge, address creator, address internal_bribe, address indexed external_bribe, address indexed pool);
@@ -62,7 +61,6 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
     event DistributeReward(address indexed sender, address indexed gauge, uint amount);
     event Attach(address indexed owner, address indexed gauge, uint tokenId);
     event Detach(address indexed owner, address indexed gauge, uint tokenId);
-    event Whitelisted(address indexed whitelister, address indexed token);
 
     constructor(address __ve, address _factory, address  _gauges, address _bribes) {
         _ve = __ve;
@@ -75,11 +73,8 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         emergencyCouncil = msg.sender;
     }      
 
-    function _initialize(address[] memory _tokens, address _minter) external {
+    function _initialize(address _minter) external {
         require(msg.sender == minter || msg.sender == emergencyCouncil);
-        for (uint i = 0; i < _tokens.length; i++) {
-            _whitelist(_tokens[i]);
-        }
         minter = _minter;
     }
 
@@ -195,18 +190,8 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         _vote(_tokenId, _poolVote, _weights);
     }
 
-    function whitelist(address _token) public {
-        require(msg.sender == governor);
-        _whitelist(_token);
-    }
-
-    function _whitelist(address _token) internal {
-        require(!isWhitelisted[_token]);
-        isWhitelisted[_token] = true;
-        emit Whitelisted(msg.sender, _token);
-    }
-
     function createGauge(address _pool) external returns (address) {
+        require(msg.sender == governor, "Only governor");
         require(gauges[_pool] == address(0x0), "exists");
         address[] memory allowedRewards = new address[](3);
         address[] memory internalRewards = new address[](2);
@@ -224,11 +209,6 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
             if (base != tokenA && base != tokenB) {
               allowedRewards[2] = base;
             }
-        }
-
-        if (msg.sender != governor) { // gov can create for any pool, even non-Thena pairs
-            require(isPair, "!_pool");
-            require(isWhitelisted[tokenA] && isWhitelisted[tokenB], "!whitelisted");
         }
 
         string memory _type =  string.concat("Thena LP Fees: ", IERC20(_pool).symbol() );
@@ -445,14 +425,6 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         isAlive[_gauge] = false;
         claimable[_gauge] = 0;
         emit GaugeKilled(_gauge);
-    }
-
-    function whitelist(address[] memory _token) public {
-        require(msg.sender == governor);
-        uint256 i = 0;
-        for(i = 0; i < _token.length; i++){
-            _whitelist(_token[i]);
-        }
     }
 
     function initGauges(address[] memory _gauges, address[] memory _pools) public {
