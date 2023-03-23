@@ -145,13 +145,16 @@ describe("Swap", function() {
         await time.advanceBlock()
         let lastTimestamp = await time.latestBlock();
 
-        const amountA = ethers.utils.parseUnits("100", 18);
-        const amountB = amountA.mul(2);
-        const amountReward = amountA.div(10);
+        const amount = ethers.utils.parseUnits("100", 18);
+        const amountReward = amount.div(10);
         let currAmt = BigNumber.from(0);
 
+        // Set day of the week
+        let dayOfWeek = new Date(await time.latest() * 1000).getDay();
+        await time.increase(60 * 60 * 24 * (12 - dayOfWeek));
+
         // Lock
-        let lock = await escrow.connect(traderA).create_lock(amountA, lastTimestamp + lockDuration30);
+        let lock = await escrow.connect(traderA).create_lock(amount, lastTimestamp + lockDuration30);
         let lockEvents = (await lock.wait())["events"];
         let NFTA, NFTB;
 
@@ -162,7 +165,7 @@ describe("Swap", function() {
             }
         }
 
-        lock = await escrow.connect(traderB).create_lock(amountB, lastTimestamp + lockDuration60);
+        lock = await escrow.connect(traderB).create_lock(amount, lastTimestamp + lockDuration60);
         lockEvents = (await lock.wait())["events"];
 
         for (let i = 0; i < lockEvents.length; i++) {
@@ -181,42 +184,60 @@ describe("Swap", function() {
 
         // Add rewards
         let claimableA, claimableB;
+        const warmup = 3;
 
-        await distributor.checkpoint_total_supply();
-        await distributor.checkpoint_token();
-
-        for (let i = 0; i < 10; i++) {
-            await time.increase(60 * 60 * 24 * 7);
+        for (let day = 1; day <= 70; day++) {
+            await time.increase(60 * 60 * 24);
             await tokenFox.connect(tokenOwner).transfer(distributor.address, amountReward);
+            currAmt = currAmt.add(amountReward);
 
             await distributor.checkpoint_total_supply();
             await distributor.checkpoint_token();
 
-            const claimA = await distributor.claimable(NFTA);
-            const claimB = await distributor.claimable(NFTB);
-            console.log(`${ethers.utils.formatEther(claimA)} -- claimable amount voter_A (30 days lock)`);
-            console.log(`${ethers.utils.formatEther(claimB)} -- claimable amount voter_B (60 days lock)`);
-            console.log(`${ethers.utils.formatEther(claimA.add(claimB))} -- claimable amount all voters`);
-            console.log(`${ethers.utils.formatEther(currAmt)} -- reward transfered for previous week`);
-            console.log('--------------------');
+            if (day % 7 == 0) {
+                claimableA = await distributor.claimable(NFTA);
+                claimableB = await distributor.claimable(NFTB);
 
-            currAmt = currAmt.add(amountReward);
+                // A has a 30day lock (ends in 5th week)
+                if (day > 7 && day <= 30) {
+                    expect(claimableA).to.be.above(0);
+                } else {
+                    expect(claimableA).to.equal(0);
+                }
+
+                // B has a 60 day lock (ends in 9th week)
+                if (day > 7 && day <= 60) {
+                    expect(claimableB).to.be.above(0);
+                } else {
+                    expect(claimableB).to.equal(0);
+                }
+
+                // B should receive more because of a longer lock period
+                if (claimableA > 0) {
+                    expect(claimableB).to.be.above(claimableA);
+                }
+
+                await distributor.claim_many([NFTA, NFTB]);
+
+                /*
+                console.log(`${ethers.utils.formatEther(claimableA)} -- claimable amount voter_A (30 days lock)`);
+                console.log(`${ethers.utils.formatEther(claimableB)} -- claimable amount voter_B (60 days lock)`);
+                console.log(`${ethers.utils.formatEther(claimableA.add(claimableB))} -- claimable amount all voters`);
+                console.log(`${ethers.utils.formatEther(currAmt)} -- reward transfered for previous week`);
+                console.log('--------------------');
+                */
+            
+                currAmt = BigNumber.from(0);
+            }
         }
 
-        // claimableA = await distributor.claimable(NFTA);
-        // claimableB = await distributor.claimable(NFTB);
-
-        // expect(claimableA.mul(2)).to.be.within(claimableB.sub(4), claimableB);
-
-        // await distributor.claim(NFTA);
-        // await distributor.claim(NFTB);
-
-        // const diffBalanceA = (await tokenFox.balanceOf(traderA.address)).sub(startBalanceA);
-        // const diffBalanceB = (await tokenFox.balanceOf(traderB.address)).sub(startBalanceB);
-
-        // expect(diffBalanceA).to.equal(claimableA);
-        // expect(diffBalanceB).to.equal(claimableB);
-
-        // expect(diffBalanceA.mul(2)).to.be.within(diffBalanceB.sub(4), diffBalanceB);
+         const diffBalanceA = (await tokenFox.balanceOf(traderA.address)).sub(startBalanceA);
+         const diffBalanceB = (await tokenFox.balanceOf(traderB.address)).sub(startBalanceB);
+         
+         /*
+         console.log("Total A: " + ethers.utils.formatEther(diffBalanceA));
+         console.log("Total B: " + ethers.utils.formatEther(diffBalanceB));
+         */
     });
 });
+
