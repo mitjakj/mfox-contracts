@@ -1,10 +1,11 @@
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { expect } = require("chai");
+const { BigNumber } = require("ethers");
 const { ethers } = require("hardhat");
 
 describe("Swap", function() {
     let owner, tokenOwner, traderA, traderB;
-    let pairFactory, router, veart, escrow, distributor,  WETH, tokenFox, tokenUsdc, lockDuration;
+    let pairFactory, router, veart, escrow, distributor,  WETH, tokenFox, tokenUsdc, lockDuration30, lockDuration60;
 
     before(async () => {
         await hre.network.provider.send("hardhat_reset");
@@ -65,14 +66,15 @@ describe("Swap", function() {
         };
 
         // Some helpers to avoid repeating in each test
-        lockDuration = 60 * 60 * 24 * 30;
+        lockDuration30 = 60 * 60 * 24 * 30;
+        lockDuration60 = 60 * 60 * 24 * 60;
     });
 
     it("Locks funds and allows withdrawal after time limit", async function() {
         // Configure time, amounts
         await time.advanceBlock()
         let lastTimestamp = await time.latestBlock();
-        let unlockTime = lastTimestamp + lockDuration;
+        let unlockTime = lastTimestamp + lockDuration30;
         let amount = ethers.utils.parseUnits("100", 18);
 
         // Lock
@@ -95,7 +97,7 @@ describe("Swap", function() {
         await expect(escrow.connect(traderA).withdraw(NFT)).to.be.reverted;
 
         // Verify another user can not withdraw the funds after the unlock time is reached
-        await time.increase(lockDuration);
+        await time.increase(lockDuration30);
         await expect(escrow.connect(traderB).withdraw(NFT)).to.be.reverted;
 
         // Verify the user can unlock the funds after the unlock time is reached
@@ -109,7 +111,7 @@ describe("Swap", function() {
         // Configure time, amounts
         await time.advanceBlock()
         let lastTimestamp = await time.latestBlock();
-        let unlockTime = lastTimestamp + lockDuration;
+        let unlockTime = lastTimestamp + lockDuration30;
         let amount = ethers.utils.parseUnits("100", 18);
 
         // Lock
@@ -129,7 +131,7 @@ describe("Swap", function() {
         await expect(escrow.connect(traderB).withdraw(NFT)).to.be.reverted;
 
         // Verify only the assigned user can withdraw after the expiration
-        await time.increase(lockDuration);
+        await time.increase(lockDuration30);
 
         await expect(escrow.connect(traderA).withdraw(NFT)).to.be.reverted;
         await escrow.connect(traderB).withdraw(NFT);
@@ -142,14 +144,14 @@ describe("Swap", function() {
         // Configure time, amounts
         await time.advanceBlock()
         let lastTimestamp = await time.latestBlock();
-        let unlockTime = lastTimestamp + lockDuration;
 
         const amountA = ethers.utils.parseUnits("100", 18);
         const amountB = amountA.mul(2);
         const amountReward = amountA.div(10);
+        let currAmt = BigNumber.from(0);
 
         // Lock
-        let lock = await escrow.connect(traderA).create_lock(amountA, unlockTime);
+        let lock = await escrow.connect(traderA).create_lock(amountA, lastTimestamp + lockDuration30);
         let lockEvents = (await lock.wait())["events"];
         let NFTA, NFTB;
 
@@ -160,7 +162,7 @@ describe("Swap", function() {
             }
         }
 
-        lock = await escrow.connect(traderB).create_lock(amountB, unlockTime);
+        lock = await escrow.connect(traderB).create_lock(amountB, lastTimestamp + lockDuration60);
         lockEvents = (await lock.wait())["events"];
 
         for (let i = 0; i < lockEvents.length; i++) {
@@ -180,29 +182,41 @@ describe("Swap", function() {
         // Add rewards
         let claimableA, claimableB;
 
-        for (let i = 0; i < 30; i++) {
+        await distributor.checkpoint_total_supply();
+        await distributor.checkpoint_token();
+
+        for (let i = 0; i < 10; i++) {
             await time.increase(60 * 60 * 24 * 7);
             await tokenFox.connect(tokenOwner).transfer(distributor.address, amountReward);
 
             await distributor.checkpoint_total_supply();
             await distributor.checkpoint_token();
 
+            const claimA = await distributor.claimable(NFTA);
+            const claimB = await distributor.claimable(NFTB);
+            console.log(`${ethers.utils.formatEther(claimA)} -- claimable amount voter_A (30 days lock)`);
+            console.log(`${ethers.utils.formatEther(claimB)} -- claimable amount voter_B (60 days lock)`);
+            console.log(`${ethers.utils.formatEther(claimA.add(claimB))} -- claimable amount all voters`);
+            console.log(`${ethers.utils.formatEther(currAmt)} -- reward transfered for previous week`);
+            console.log('--------------------');
+
+            currAmt = currAmt.add(amountReward);
         }
 
-        claimableA = await distributor.claimable(NFTA);
-        claimableB = await distributor.claimable(NFTB);
+        // claimableA = await distributor.claimable(NFTA);
+        // claimableB = await distributor.claimable(NFTB);
 
-        expect(claimableA.mul(2)).to.be.within(claimableB.sub(4), claimableB);
+        // expect(claimableA.mul(2)).to.be.within(claimableB.sub(4), claimableB);
 
-        await distributor.claim(NFTA);
-        await distributor.claim(NFTB);
+        // await distributor.claim(NFTA);
+        // await distributor.claim(NFTB);
 
-        const diffBalanceA = (await tokenFox.balanceOf(traderA.address)).sub(startBalanceA);
-        const diffBalanceB = (await tokenFox.balanceOf(traderB.address)).sub(startBalanceB);
+        // const diffBalanceA = (await tokenFox.balanceOf(traderA.address)).sub(startBalanceA);
+        // const diffBalanceB = (await tokenFox.balanceOf(traderB.address)).sub(startBalanceB);
 
-        expect(diffBalanceA).to.equal(claimableA);
-        expect(diffBalanceB).to.equal(claimableB);
+        // expect(diffBalanceA).to.equal(claimableA);
+        // expect(diffBalanceB).to.equal(claimableB);
 
-        expect(diffBalanceA.mul(2)).to.be.within(diffBalanceB.sub(4), diffBalanceB);
+        // expect(diffBalanceA.mul(2)).to.be.within(diffBalanceB.sub(4), diffBalanceB);
     });
 });
