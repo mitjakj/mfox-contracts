@@ -233,11 +233,141 @@ describe("Swap", function() {
 
          const diffBalanceA = (await tokenFox.balanceOf(traderA.address)).sub(startBalanceA);
          const diffBalanceB = (await tokenFox.balanceOf(traderB.address)).sub(startBalanceB);
-         
-         /*
-         console.log("Total A: " + ethers.utils.formatEther(diffBalanceA));
-         console.log("Total B: " + ethers.utils.formatEther(diffBalanceB));
-         */
+    });
+
+    it("Can claim rewards before and after unlock", async function() {
+        // Configure time, amounts
+        await time.advanceBlock()
+        let lastTimestamp = await time.latestBlock();
+
+        const amount = ethers.utils.parseUnits("100", 18);
+
+        // Lock
+        const traders = [traderA, traderB];
+        let NFTS = [null, null];
+        let lock, lockEvents;
+
+        for (let i = 0; i < traders.length; i++) {
+            lock = await escrow.connect(traders[i]).create_lock(amount, lastTimestamp + lockDuration30);
+            lockEvents = (await lock.wait())["events"];
+
+            for (let j = 0; j < lockEvents.length; j++) {
+                if (lockEvents[j]["event"] == "Deposit") {
+                    NFTS[i] = lockEvents[j]["args"][1];
+                }
+            }
+        }
+
+        // Start
+        const startBalanceA = await tokenFox.balanceOf(traders[0].address);
+        const startBalanceB = await tokenFox.balanceOf(traders[1].address);
+        const startNftA = await escrow.balanceOfNFT(NFTS[0]);
+        const startNftB = await escrow.balanceOfNFT(NFTS[1]);
+
+        expect(startBalanceA).to.equal(startBalanceB);
+        expect(startNftA).to.equal(startNftB);
+
+        // Midpoint
+        await time.increase(60 * 60 * 24 * 15);
+        await tokenFox.connect(tokenOwner).transfer(distributor.address, amount);
+
+        await distributor.checkpoint_total_supply();
+        await distributor.checkpoint_token();
+
+        let claimableA = await distributor.claimable(NFTS[0]);
+        let claimableB = await distributor.claimable(NFTS[1]);
+
+        expect(claimableA).to.equal(claimableB);
+
+        // Only A claims and receives balance to lock, not wallet!
+        await distributor.claim(NFTS[0]);
+
+        expect(await tokenFox.balanceOf(traders[0].address)).to.equal(startBalanceA);
+        expect(await tokenFox.balanceOf(traders[1].address)).to.equal(startBalanceB);
+        expect(await escrow.balanceOfNFT(NFTS[0])).to.be.above(
+            await escrow.balanceOfNFT(NFTS[1]));
+
+        // End
+        await time.increase(60 * 60 * 24 * 15);
+
+        await distributor.checkpoint_total_supply();
+        await distributor.checkpoint_token();
+
+        claimableA = await distributor.claimable(NFTS[0]);
+        claimableB = await distributor.claimable(NFTS[1]);
+
+        expect(claimableB).to.be.above(claimableA);
+
+        await distributor.claim_many(NFTS);
+
+        for (let i = 0; i < traders.length; i++) {
+            await escrow.connect(traders[i]).withdraw(NFTS[i]);
+        }
+
+        // At the end both traders should get the same amount
+        const endBalanceA = await tokenFox.balanceOf(traders[0].address);
+        const endBalanceB = await tokenFox.balanceOf(traders[1].address);
+
+        expect(endBalanceA).to.be.above(startBalanceA);
+        expect(endBalanceA).to.equal(endBalanceB);
+    });
+
+    it("Supports rewards in a different curency", async function() {
+        // Reward Distributor
+        const distributorContract = await ethers.getContractFactory("RewardsDistributor");
+        distributorUsdc = await distributorContract.deploy(escrow.address, tokenUsdc.address);
+        await distributorUsdc.deployed();
+
+        // Configure time, amounts
+        await time.advanceBlock()
+        let lastTimestamp = await time.latestBlock();
+
+        const amount = ethers.utils.parseUnits("100", 18);
+
+        // Lock
+        let NFT;
+
+        const lock = await escrow.connect(traderA).create_lock(amount, lastTimestamp + lockDuration30);
+        const lockEvents = (await lock.wait())["events"];
+
+        for (let i = 0; i < lockEvents.length; i++) {
+            if (lockEvents[i]["event"] == "Deposit") {
+                NFT = lockEvents[i]["args"][1];
+            }
+        }
+
+        // Start
+        const startBalanceFox = await tokenFox.balanceOf(traderA.address);
+        const startBalanceUsdc = await tokenUsdc.balanceOf(traderA.address);
+        const startBalanceNFT = await escrow.balanceOfNFT(NFT);
+
+        // Midpoint - we also transfer FOX just to make sure it doesn't do anything
+        await time.increase(60 * 60 * 24 * 15);
+        await tokenFox.connect(tokenOwner).transfer(distributorUsdc.address, amount);
+        await tokenUsdc.connect(tokenOwner).transfer(distributorUsdc.address, amount);
+
+        await distributorUsdc.checkpoint_total_supply();
+        await distributorUsdc.checkpoint_token();
+
+        // Trader receives balance immediately and in distributor token
+        let claimable = await distributorUsdc.claimable(NFT);
+        expect(claimable).to.be.above(0);
+        await distributorUsdc.claim(NFT);
+
+        expect(await tokenFox.balanceOf(traderA.address)).to.equal(startBalanceFox);
+        expect(await tokenUsdc.balanceOf(traderA.address)).to.be.above(startBalanceUsdc);
+
+        // End
+        await time.increase(60 * 60 * 24 * 15);
+        await distributorUsdc.checkpoint_total_supply();
+        await distributorUsdc.checkpoint_token();
+
+        claimable = await distributorUsdc.claimable(NFT);
+        expect(claimable).to.be.above(0);
+        await distributorUsdc.claim(NFT);
+
+        expect(await tokenFox.balanceOf(traderA.address)).to.equal(startBalanceFox);
+        expect(await tokenUsdc.balanceOf(traderA.address)).to.be.above(startBalanceUsdc);
     });
 });
 
