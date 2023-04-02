@@ -4,7 +4,7 @@ async function main() {
     const ContractF = await hre.ethers.getContractFactory("ProxyOFT");
     const contr = await ContractF.deploy(
         '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7', // address _lzEndpoint -- FTM, 
-        '0xcBE52059f5E4660c13a318B5c96426f8ae719922', // address _token
+        '0x82109569604B1Bf23390e5006f7f43063F116C36', // address _token
     );
 
     await contr.deployed();

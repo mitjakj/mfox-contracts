@@ -14,6 +14,7 @@ module.exports = {
   etherscan: {
     apiKey: {
        opera: secret.ftmScanAPI,
+       avalanche: secret.snowtraceAPI,
        bsc: secret.bscScanAPI,
      }
   },

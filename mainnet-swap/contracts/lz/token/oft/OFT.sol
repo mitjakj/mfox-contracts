@@ -34,4 +34,16 @@ contract OFT is OFTCore, ERC20, IOFT {
         _mint(_toAddress, _amount);
         return _amount;
     }
+
+    address public gaugeManager;
+
+    function setGaugeManager(address _gaugeManager) external onlyOwner {
+        require(_gaugeManager != address(0), 'Null address not allowed!');
+        gaugeManager = _gaugeManager;
+    }
+
+    function mintWeeklyRewards(address _toAddress, uint _amount) external {
+        require(msg.sender == gaugeManager, 'Unauthorized');
+        _mint(_toAddress, _amount);
+    }
 }

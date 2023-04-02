@@ -21,12 +21,12 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
 
-    // ILayerZeroEndpoint public constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62); // BSC
-    ILayerZeroEndpoint public constant lzEndpoint = ILayerZeroEndpoint(0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7); // FTM
+    ILayerZeroEndpoint public constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
 
     address public _ve; // the ve token that governs these contracts
     address public factory; // the PairFactory
     address internal base;
+    address public proxyOFT;
     address public gaugefactory;
     address public bribefactory;
     uint internal constant DURATION = 7 days; // rewards are released over 7 days
@@ -43,7 +43,8 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
     address[] public pools; // all pools viable for incentives
     mapping(address => address) public gauges; // pool => gauge
     mapping(address => uint) public gaugeChain; // gauge => uint
-    mapping(uint => address[]) public chainGauges; // chain => gauge list
+    mapping(uint16 => address) public sidechainManager; // chain => gauge manager
+    mapping(uint16 => address[]) public chainGauges; // chain => gauge list
     mapping(uint => mapping(address => uint)) public epochBridgeData; // epoch => gauge => claimable
     mapping(address => uint) public gaugesDistributionTimestmap;
     mapping(address => address) public poolForGauge; // gauge => pool
@@ -69,16 +70,23 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
     event Attach(address indexed owner, address indexed gauge, uint tokenId);
     event Detach(address indexed owner, address indexed gauge, uint tokenId);
 
-    // constructor(address __ve, address _factory, address  _gauges, address _bribes) {
-    //     _ve = __ve;
-    //     factory = _factory;
-    //     base = IVotingEscrow(__ve).token();
-    //     gaugefactory = _gauges;
-    //     bribefactory = _bribes;
-    //     minter = msg.sender;
-    //     governor = msg.sender;
-    //     emergencyCouncil = msg.sender;
-    // }      
+    constructor(
+        address __ve, 
+        address _factory, 
+        address  _gauges, 
+        address _bribes,
+        address _proxyOFT
+    ) {
+        _ve = __ve;
+        factory = _factory;
+        base = IVotingEscrow(__ve).token();
+        proxyOFT = _proxyOFT;
+        gaugefactory = _gauges;
+        bribefactory = _bribes;
+        minter = msg.sender;
+        governor = msg.sender;
+        emergencyCouncil = msg.sender;
+    }      
 
     function _initialize(address _minter) external {
         require(msg.sender == minter || msg.sender == emergencyCouncil);
@@ -197,7 +205,7 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         _vote(_tokenId, _poolVote, _weights);
     }
 
-    function createGauge(address _pool, uint chainId) external returns (address) {
+    function createGauge(address _pool, uint16 chainId) external returns (address) {
         require(msg.sender == governor, "Only governor");
         require(gauges[_pool] == address(0x0), "exists");
         address[] memory allowedRewards = new address[](3);
@@ -369,13 +377,15 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         }
     }
 
-    function distributeSidechain(uint16 chainId, uint period) public payable {
+    function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit) public payable {
         require(chainId > 0 && chainId != block.chainid, "invalid chainId");
         address _gauge;
-        uint _totalClaimable;
-        uint[] memory _claimable = new uint256[](chainGauges[chainId].length);
+        uint256 _totalClaimable;
+        uint256[] memory _claimable = new uint256[](chainGauges[chainId].length);
+        address[] memory _gauges = new address[](chainGauges[chainId].length);
         for (uint i = 0; i < chainGauges[chainId].length; i++) {
             _gauge = chainGauges[chainId][i];
+            _gauges[i] = _gauge;
             _claimable[i] = epochBridgeData[period][_gauge];
             _totalClaimable += epochBridgeData[period][_gauge];
             epochBridgeData[period][_gauge] = 0;
@@ -383,22 +393,16 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
 
         if (_totalClaimable > 0) {
             // Bridge rewards & array with claimable amounts per gauge using LZ
-            bytes memory lzPayload = abi.encode(0, chainGauges[chainId], _claimable);
-            // lzEndpoint.send{value: msg.value}(chainId, chainGaugeManager[chainId], lzPayload, address(0), address(0), "0x");
+            bytes memory lzPayload = abi.encode(_gauges, _claimable);
+
+            bytes memory trustedPath = abi.encodePacked(sidechainManager[chainId], address(this));
+            bytes memory adapterParams = abi.encodePacked(uint16(1), dstGasLimit); // has to be at least 200_000
+
+            lzEndpoint.send{value: msg.value}(chainId, trustedPath, lzPayload, payable(msg.sender), address(0), adapterParams);
 
             // We also need to send tokens to ProxyOFT contract on main chain
-            // We also need to send tokens to ProxyOFT contract on main chain
-            // We also need to send tokens to ProxyOFT contract on main chain
+            IERC20(base).transfer(proxyOFT, _totalClaimable);
         }
-    }
-
-    function testBridge(uint16 chainId, address sideChainManager) public payable {
-        // address[] memory _gauges = [address(0), 0x000000000000000000000000000000000000dEaD];
-        // uint[] memory _claimable = [11111,99999];
-        bytes memory lzPayload = abi.encode(0, [address(0), 0x000000000000000000000000000000000000dEaD], [11111,99999]);
-        bytes memory trustedPath = abi.encodePacked(sideChainManager, address(this));
-        
-        lzEndpoint.send{value: msg.value}(chainId, trustedPath, lzPayload, payable(msg.sender), address(0), bytes(""));
     }
 
     function distribute(address _gauge) public nonReentrant {
@@ -458,6 +462,11 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
     function setPairFactory(address _factory) external {
         require(msg.sender == emergencyCouncil);
         factory = _factory;
+    }
+
+    function setSidechainManager(uint16 _chainId, address _manager) external {
+        require(msg.sender == governor, "Only governor");
+        sidechainManager[_chainId] = _manager;
     }
 
     function killGaugeTotally(address _gauge) external {

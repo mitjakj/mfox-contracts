@@ -3,11 +3,18 @@ pragma abicoder v2;
 
 import "./lz/lzApp/NonblockingLzApp.sol";
 
+interface IOFT {
+    function mintWeeklyRewards(address _toAddress, uint _amount) external;
+}
+
 contract DummyReceiver is NonblockingLzApp {
     bytes public constant PAYLOAD = "\x01\x02\x03\x04";
     uint public counter;
-    address[] public gauges;
-    uint[] public amounts;
+    // address[] public gauges;
+    // uint[] public amounts;
+    address public token = 0xFb30639BD7C540DD03B231baAB85c9B778ddB4a1;
+
+    event Receive(address[] a, uint[] b);
 
     constructor(address _lzEndpoint) NonblockingLzApp(_lzEndpoint) {}
 
@@ -16,13 +23,25 @@ contract DummyReceiver is NonblockingLzApp {
     // }
 
     function _nonblockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload) internal virtual override {
+        // (, gauges, amounts) = abi.decode(_payload, (uint16, address[], uint[]));
+        // (, , uint[] memory _amounts) = abi.decode(_payload, (uint16, address[], uint[]));
+        (address[] memory a, uint256[] memory amounts) = abi.decode(_payload, (address[], uint256[]));
+
+        uint256 amountToMint;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            amountToMint += amounts[i];
+        }
+
+        IOFT(token).mintWeeklyRewards(0x1bb1C670dC4317751a39EDa11Dc50E1231583306, amountToMint);
+
+        emit Receive(a,amounts);
 
         // (, bytes memory toAddressBytes, uint amount) = abi.decode(_payload, (uint16, bytes, uint));
         // address to = toAddressBytes.toAddress(0);
-        (, address[] memory _gauges, uint[] memory _amounts) = abi.decode(_payload, (uint16, address[], uint[]));
+        // (, address[] memory _gauges, uint[] memory _amounts) = abi.decode(_payload, (uint16, address[], uint[]));
 
-        gauges = _gauges;
-        amounts = _amounts;
+        // gauges = _gauges;
+        // amounts = _amounts;
 
         // uint16 packetType;
         // assembly {
@@ -36,12 +55,31 @@ contract DummyReceiver is NonblockingLzApp {
         // }
     }
 
-    // function testEncode(address[] memory a, uint[] memory b) public view returns (address[] memory, uint[] memory) {
-    //   bytes memory aaa = abi.encodePacked(a, b);
+    // function testEncode(uint256[] memory a) public view returns (bytes memory) {
+    //   //bytes memory aaa = abi.encode(a, b);
 
-    //   (address[] memory _gauges, uint[] memory _amounts) = abi.decode(aaa, (address[], uint[]));
-    //   return (_gauges, _amounts);
+    //   return abi.encode(a);
     // }
+
+    // function testEncode2() public view returns (bytes memory) {
+    //   uint256[] memory a = new uint256[](3);
+    //   a[0] = 1;
+    //   a[1] = 2;
+    //   a[2] = 3;
+
+    //   return abi.encode(a);
+    // }
+
+    // function testEncode3() public view returns (bytes memory) {
+
+    //   return abi.encode(encodeArray([1,2,3]));
+    // }
+
+    // function encodeArray(uint256[] memory x) public view returns (bytes memory) {
+
+    //   return abi.encode(x);
+    // }
+
 
     // function encodeAddresses(address[] memory addressesToEncode, uint[] memory uintToEncode) public pure returns (bytes memory) {
     //     return abi.encode(0, addressesToEncode, uintToEncode);
