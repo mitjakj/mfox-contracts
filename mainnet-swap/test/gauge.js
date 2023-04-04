@@ -38,10 +38,10 @@ describe("Gauge", function() {
     await tmpToken.deployed();
     testTokens.push(tmpToken);
 
-    testTokens[0].connect(investor1).approve(investor2.address, ethers.constants.MaxUint256);
-    testTokens[0].connect(investor1).transfer(investor2.address, ethers.utils.parseUnits('100', 18))
-    TOKEN.connect(investor1).approve(investor2.address, ethers.constants.MaxUint256);
-    TOKEN.connect(investor1).transfer(investor2.address, ethers.utils.parseUnits('100', 18))
+    await testTokens[0].connect(investor1).approve(investor2.address, ethers.constants.MaxUint256);
+    await testTokens[0].connect(investor1).transfer(investor2.address, ethers.utils.parseUnits('100', 18))
+    await TOKEN.connect(investor1).approve(investor2.address, ethers.constants.MaxUint256);
+    await TOKEN.connect(investor1).transfer(investor2.address, ethers.utils.parseUnits('100', 18))
 
     // Bribe token
     const BribeTokenContract = await ethers.getContractFactory("DummyToken");
