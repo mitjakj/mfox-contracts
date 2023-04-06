@@ -210,34 +210,46 @@ describe("VoterV2", function() {
     await testTokens[0].connect(investor2).approve(GAUGE_0.address, ethers.constants.MaxUint256);
     await GAUGE_0.connect(investor1).deposit(ethers.utils.parseUnits('2', 18), "0x0");
     await GAUGE_0.connect(investor2).deposit(ethers.utils.parseUnits('2', 18), "0x0");
-
     console.log(`GAUGE_0 totalSupply:          ${await GAUGE_0.totalSupply()}`);
     console.log(`GAUGE_0 derivedSupply:        ${await GAUGE_0.derivedSupply()}`);
     console.log(`GAUGE_0 balance:              ${await GAUGE_0.derivedSupply()}`);
+    expect(await GAUGE_0.balance()).to.equal(ethers.utils.parseUnits('4', 18));
+    expect(await GAUGE_0.derivedSupply()).to.equal(ethers.utils.parseUnits('1.6', 18));
 
     console.log(`\n---- deposit 2 ----`);
     await GAUGE_0.connect(investor1).deposit(ethers.utils.parseUnits('2', 18), tokenId0);
-
+    console.log(`token balanceOfNFT:           ${await VE.balanceOfNFT(tokenId0)}`);
     console.log(`GAUGE_0 totalSupply:          ${await GAUGE_0.totalSupply()}`);
     console.log(`GAUGE_0 derivedSupply:        ${await GAUGE_0.derivedSupply()}`);
-
     console.log(`GAUGE_0 investor1 balance:    ${(await GAUGE_0.balanceOf(investor1.address))}`);
-    console.log(`GAUGE_0 investor1 dBalance:   ${(await GAUGE_0.derivedBalance(investor1.address))}`);
+    console.log(`GAUGE_0 investor1 dBalance:   ${(await GAUGE_0.derivedBalanceOf(investor1.address))}`);
     console.log(`GAUGE_0 investor2 balance:    ${(await GAUGE_0.balanceOf(investor2.address))}`);
-    console.log(`GAUGE_0 investor2 dBalance:   ${(await GAUGE_0.derivedBalance(investor2.address))}`);
+    console.log(`GAUGE_0 investor2 dBalance:   ${(await GAUGE_0.derivedBalanceOf(investor2.address))}`);
+    expect(await GAUGE_0.balance()).to.equal(ethers.utils.parseUnits('6', 18));
 
     console.log(`\n---- increase boost ----`);
     await VE.connect(investor1).deposit_for(tokenId0, ethers.utils.parseUnits('2', 18));
     await GAUGE_0.connect(investor1).updateDerivedBalance();
     VE.totalSupply()
     console.log(`VE totalSUpply:               ${(await VE.totalSupply())}`);
-    console.log(`GAUGE_0 investor1 dBalance:   ${(await GAUGE_0.derivedBalance(investor1.address))}`);
+    console.log(`GAUGE_0 investor1 dBalance:   ${(await GAUGE_0.derivedBalanceOf(investor1.address))}`);
 
-    console.log(`\n---- transfer VE ----`);
+    console.log(`\n---- fail transfer VE ----`);
     await expect(VE.connect(investor1).transferFrom(investor1.address, investor2.address, tokenId0)).to.be.revertedWith('attached');
     await GAUGE_0.connect(investor1).withdrawToken(0, tokenId0);
     console.log(`GAUGE_0 investor1 balance:    ${(await GAUGE_0.balanceOf(investor1.address))}`);
-    console.log(`GAUGE_0 investor1 dBalance:   ${(await GAUGE_0.derivedBalance(investor1.address))}`);
+    console.log(`GAUGE_0 investor1 dBalance:   ${(await GAUGE_0.derivedBalanceOf(investor1.address))}`);
+    console.log(`GAUGE_0 totalSupply:          ${await GAUGE_0.totalSupply()}`);
+    console.log(`GAUGE_0 derivedSupply:        ${await GAUGE_0.derivedSupply()}`);
+
+    console.log(`\n---- ----`);
+    await GAUGE_0.connect(investor1).withdrawToken(ethers.utils.parseUnits('1', 18), "0x0");
+    console.log(`GAUGE_0 investor1 balance:    ${(await GAUGE_0.balanceOf(investor1.address))}`);
+    console.log(`GAUGE_0 investor1 dBalance:   ${(await GAUGE_0.derivedBalanceOf(investor1.address))}`);
+    console.log(`GAUGE_0 totalSupply:          ${await GAUGE_0.totalSupply()}`);
+    console.log(`GAUGE_0 derivedSupply:        ${await GAUGE_0.derivedSupply()}`);
+
+    console.log(`\n---- transfer VE ----`);
     await VE.connect(investor1).transferFrom(investor1.address, investor2.address, tokenId0);
     
     console.log(`VE owner:                     ${await VE.ownerOf(tokenId0)}`);

@@ -48,10 +48,6 @@ abstract contract Strategy is Ownable, Pausable {
     uint256 public constant buyBackRateMax = 10000; // 100 = 1%
     uint256 public constant buyBackRateUL = 800;
     address public constant buyBackAddress = 0x000000000000000000000000000000000000dEaD;
-    
-    uint256 public entranceFeeFactor; // < 0.1% entrance fee - goes to pool + prevents front-running
-    uint256 public constant entranceFeeFactorMax = 10000;
-    uint256 public constant entranceFeeFactorLL = 9950; // 0.5% is the max entrance fee settable. LL = lowerlimit
 
     uint256 public withdrawFeeFactor;
     uint256 public constant withdrawFeeFactorMax = 10000;
@@ -367,12 +363,6 @@ abstract contract Strategy is Ownable, Pausable {
 
     function unpause() external virtual onlyAllowGov {
         _unpause();
-    }
-
-    function setEntranceFeeFactor(uint256 _entranceFeeFactor) public onlyAllowGov {
-        require(_entranceFeeFactor > entranceFeeFactorLL, "!safe - too low");
-        require(_entranceFeeFactor <= entranceFeeFactorMax, "!safe - too high");
-        entranceFeeFactor = _entranceFeeFactor;
     }
 
     function setControllerFee(uint256 _controllerFee) public onlyAllowGov{

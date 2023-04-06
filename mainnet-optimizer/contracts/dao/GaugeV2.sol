@@ -143,7 +143,7 @@ contract GaugeV2 is ERC20, ReentrancyGuard, Ownable {
         if (_bal == 0) {
             return rewardPerTokenStored;
         } else {
-            return rewardPerTokenStored + ((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate *1e18 /_bal);
+            return rewardPerTokenStored + ((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate *1e18 /derivedSupply);
         }
     }
 
@@ -201,12 +201,6 @@ contract GaugeV2 is ERC20, ReentrancyGuard, Ownable {
             tokenId = tokenIds[account];
         }
 
-        // // uint _derivedBalance = derivedBalances[account];
-        // // derivedSupply -= _derivedBalance;
-        // // _derivedBalance = derivedBalance(account);
-        // // derivedBalances[account] = _derivedBalance;
-        // // derivedSupply += _derivedBalance;
-
         if (address(gaugeRewarder) != address(0)) {
             IRewarder(gaugeRewarder).onReward(rewarderPid, account, account, 0, balanceOf(account));
         }
@@ -218,6 +212,13 @@ contract GaugeV2 is ERC20, ReentrancyGuard, Ownable {
             shares = _amount * totalSupply() / _pool;
         }
         _mint(account, shares);
+
+        uint _derivedBalance = derivedBalances[account];
+        derivedSupply -= _derivedBalance;
+        _derivedBalance = derivedBalanceOf(account);
+        derivedBalances[account] = _derivedBalance;
+        derivedSupply += _derivedBalance;
+
         earn();
         emit Deposit(account, _amount);
     }
@@ -274,26 +275,26 @@ contract GaugeV2 is ERC20, ReentrancyGuard, Ownable {
             tokenId = tokenIds[msg.sender];
         }
 
-        // uint _derivedBalance = derivedBalances[msg.sender];
-        // derivedSupply -= _derivedBalance;
-        // _derivedBalance = derivedBalance(msg.sender);
-        // derivedBalances[msg.sender] = _derivedBalance;
-        // derivedSupply += _derivedBalance;
+        uint _derivedBalance = derivedBalances[msg.sender];
+        derivedSupply -= _derivedBalance;
+        _derivedBalance = derivedBalanceOf(msg.sender);
+        derivedBalances[msg.sender] = _derivedBalance;
+        derivedSupply += _derivedBalance;
 
         emit Withdraw(msg.sender, r);
     }
 
-    function derivedBalance(address account) public view returns (uint) {
+    function derivedBalanceOf(address account) public view returns (uint) {
         uint _tokenId = tokenIds[account];
-        uint _balance = balanceOf(account);
-        uint _derived = _balance * 40 / 100;
+        uint _shares = balanceOf(account);
+        uint _derived = _shares * 40 / 100;
         uint _adjusted = 0;
         uint _supply = _VE.totalSupply();
         if (account == _VE.ownerOf(_tokenId) && _supply > 0) {
             _adjusted = _VE.balanceOfNFT(_tokenId);
-            _adjusted = (balance() * _adjusted / _supply) * 60 / 100;
+            _adjusted = (totalSupply() * _adjusted / _supply) * 60 / 100;
         }
-        return Math.min((_derived + _adjusted), _balance);
+        return Math.min((_derived + _adjusted), _shares);
     }
 
     ///@notice withdraw all TOKEN and harvest rewardToken
@@ -307,7 +308,7 @@ contract GaugeV2 is ERC20, ReentrancyGuard, Ownable {
 
         uint _derivedBalance = derivedBalances[msg.sender];
         derivedSupply -= _derivedBalance;
-        _derivedBalance = derivedBalance(msg.sender);
+        _derivedBalance = derivedBalanceOf(msg.sender);
         derivedBalances[msg.sender] = _derivedBalance;
         derivedSupply += _derivedBalance;
     }
