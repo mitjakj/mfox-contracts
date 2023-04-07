@@ -287,33 +287,6 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         emit GaugeKilled(_gauge);
     }
 
-    // function initGauges(address[] memory _gauges, address[] memory _pools) public {
-    //     require(msg.sender == emergencyCouncil);
-    //     uint256 i = 0;
-    //     for(i; i < _pools.length; i++){
-    //         address _pool = _pools[i];
-    //         address _gauge = _gauges[i];
-    //         address tokenA;
-    //         address tokenB;
-    //         (tokenA, tokenB) = IPair(_pool).tokens();
-
-    //         string memory _type =  string.concat("Thena LP Fees: ", IERC20(_pool).symbol() );
-    //         address _internal_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
-    //         //_type = string.concat("Thena Bribes: ", IERC20(_pool).symbol() );
-    //         address _external_bribe = address(0);
-    //         IERC20(base).approve(_gauge, type(uint).max);
-    //         internal_bribes[_gauge] = _internal_bribe;
-    //         external_bribes[_gauge] = _external_bribe;
-    //         gauges[_pool] = _gauge;
-    //         poolForGauge[_gauge] = _pool;
-    //         isGauge[_gauge] = true;
-    //         isAlive[_gauge] = true;
-    //         //_updateFor(_gauge);
-    //         pools.push(_pool);
-    //         emit GaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _pool);
-    //     }
-    // }
-
     function increaseGaugeApprovals(address _gauge) external {
         require(msg.sender == emergencyCouncil);
         require(isGauge[_gauge] = true);
@@ -328,6 +301,7 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         external_bribes[_gauge] = _external;
     }
 
+    // Moved minter & active_period here, because bribes contract needs it, and we don't have minter on sidechain
     function minter() external view returns (address) {
         return address(this);
     }
