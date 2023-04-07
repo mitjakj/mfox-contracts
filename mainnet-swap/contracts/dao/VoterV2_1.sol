@@ -377,20 +377,23 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         }
     }
 
-    function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit) public payable {
+    function distributeSidechainAll(uint16 chainId, uint256 period, uint256 dstGasLimit) external payable {
+        distributeSidechain(chainId, period, dstGasLimit, 0, chainGauges[chainId].length);
+    }
+
+    function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit, uint256 from, uint256 to) public payable {
         require(chainId > 0 && chainId != block.chainid, "invalid chainId");
         address _gauge;
         uint256 _totalClaimable;
-        uint256[] memory _claimable = new uint256[](chainGauges[chainId].length);
-        address[] memory _gauges = new address[](chainGauges[chainId].length);
-        for (uint i = 0; i < chainGauges[chainId].length; i++) {
+        uint256 gaugesToProcess = to - from;
+        uint256[] memory _claimable = new uint256[](gaugesToProcess);
+        address[] memory _gauges = new address[](gaugesToProcess);
+        for (uint i = from; i < to; i++) {
             _gauge = chainGauges[chainId][i];
             _gauges[i] = _gauge;
             _claimable[i] = epochBridgeData[period][_gauge];
             _totalClaimable += epochBridgeData[period][_gauge];
-            
-            // Check if this can be commented out, to allow bridge retry in case sidechain gauge doesn't exist.
-            // epochBridgeData[period][_gauge] = 0;
+            epochBridgeData[period][_gauge] = 0;
         }
 
         if (_totalClaimable > 0) {
