@@ -388,12 +388,14 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
             _gauges[i] = _gauge;
             _claimable[i] = epochBridgeData[period][_gauge];
             _totalClaimable += epochBridgeData[period][_gauge];
-            epochBridgeData[period][_gauge] = 0;
+            
+            // Check if this can be commented out, to allow bridge retry in case sidechain gauge doesn't exist.
+            // epochBridgeData[period][_gauge] = 0;
         }
 
         if (_totalClaimable > 0) {
             // Bridge rewards & array with claimable amounts per gauge using LZ
-            bytes memory lzPayload = abi.encode(_gauges, _claimable);
+            bytes memory lzPayload = abi.encode(IMinter(minter).active_period(), _totalClaimable, _gauges, _claimable);
 
             bytes memory trustedPath = abi.encodePacked(sidechainManager[chainId], address(this));
             bytes memory adapterParams = abi.encodePacked(uint16(1), dstGasLimit); // has to be at least 200_000
