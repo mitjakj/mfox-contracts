@@ -15,10 +15,18 @@ describe("Strategy", function() {
 
     provider = ethers.getDefaultProvider();
 
-    const TOKENContract = await ethers.getContractFactory("Thena");
+    const TOKENContract = await ethers.getContractFactory("Token");
     TOKEN = await TOKENContract.deploy();
     await TOKEN.deployed();
     await TOKEN.initialMint(investor1.address);
+
+    const ArtContract = await ethers.getContractFactory("VeArt");
+    ART = await ArtContract.deploy();
+    await ART.deployed();
+    
+    const VEContract = await ethers.getContractFactory("VotingEscrow");
+    VE = await VEContract.deploy(TOKEN.address, ART.address);
+    await VE.deployed();
 
     let tmpToken;
     const DUMMYContract = await ethers.getContractFactory("DummyToken");
@@ -122,7 +130,7 @@ describe("Strategy", function() {
     console.log("--- Test Strategy - native ---");
 
     const GAUGEContract = await ethers.getContractFactory("GaugeV2");
-    GAUGE = await GAUGEContract.deploy(ZERO_ADDRESS, ZERO_ADDRESS, testTokens[0].address, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS,false);
+    GAUGE = await GAUGEContract.deploy(ZERO_ADDRESS, VE.address, testTokens[0].address, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS,false);
     await GAUGE.deployed();
 
     const STRATEGYContract = await ethers.getContractFactory("Strategy_Native");
