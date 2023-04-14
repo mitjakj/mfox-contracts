@@ -1,4 +1,5 @@
 const hre = require("hardhat");
+const constants = require("../../../constants.js");
 
 async function main() {
     const addresses = hre.network.config.constants;
@@ -6,8 +7,7 @@ async function main() {
 
     const VOTER = await hre.ethers.getContractAt('VoterV2_1', addresses.voter, deployer);
 
-    tx = await VOTER.createGauge(addresses.foxLP_volatile_PH_WBNB, 0);
-    tx = await VOTER.createGauge(addresses.foxLP_stable_USDC_WBNB, 0);
+    tx = await VOTER.createGauge(hre.ethers.constants.AddressZero, constants.ARBITRUM.lzChainId);
     await tx.wait();
     console.log("gauge created");
 

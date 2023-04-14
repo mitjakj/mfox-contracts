@@ -11,6 +11,7 @@ import './interfaces/IPair.sol';
 import './interfaces/IPairFactory.sol';
 import './interfaces/IVotingEscrow.sol';
 import "../lz/interfaces/ILayerZeroEndpoint.sol";
+import "./SidechainPool.sol";
 import "hardhat/console.sol";
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -202,6 +203,12 @@ contract BluechipVoter is IBluechipVoter, OwnableUpgradeable, ReentrancyGuardUpg
 
     function createGauge(address _pool, uint16 chainId) external returns (address) {
         require(msg.sender == governor, "Only governor");
+
+        if(chainId > 0) {
+            // create dummy token -- only placeholder
+            _pool = address(new SidechainPool());
+        }
+
         require(gauges[_pool] == address(0x0), "exists");
         bool isPair = IPairFactory(factory).isPair(_pool);
         address tokenA;
@@ -213,7 +220,7 @@ contract BluechipVoter is IBluechipVoter, OwnableUpgradeable, ReentrancyGuardUpg
 
         address _gauge = IGaugeFactory(gaugefactory).createGaugeV2(base, _ve, _pool, address(this), address(0), address(0), fees_collector, isPair);
 
-        if(chainId > 0 && chainId != block.chainid) {
+        if(chainId > 0) {
             gaugeChain[_gauge] = chainId;
             chainGauges[chainId].push(_gauge);
         }
@@ -344,7 +351,7 @@ contract BluechipVoter is IBluechipVoter, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit, uint256 from, uint256 to) public payable {
-        require(chainId > 0 && chainId != block.chainid, "invalid chainId");
+        require(chainId > 0, "invalid chainId");
         address _gauge;
         uint256 _totalClaimable;
         uint256 gaugesToProcess = to - from;
@@ -473,6 +480,21 @@ contract BluechipVoter is IBluechipVoter, OwnableUpgradeable, ReentrancyGuardUpg
     function setFeesCollector(address _fees_collector) external {
         require(msg.sender == emergencyCouncil);
         fees_collector = _fees_collector; 
+    }
+
+    function poolsList() external view returns(address[] memory, address[] memory, uint16[] memory){
+        address[] memory gaugeList = new address[](pools.length);
+        uint16[] memory chainIdList = new uint16[](pools.length);
+        for (uint i = 0; i < pools.length; i++) {
+            gaugeList[i] = gauges[pools[i]];
+            chainIdList[i] = uint16(gaugeChain[gauges[pools[i]]]);
+        }
+
+        return (pools, gaugeList, chainIdList);
+    }
+
+    function chainGaugesList(uint16 _chainId) external view returns(address[] memory){
+        return chainGauges[_chainId];
     }
 
 }

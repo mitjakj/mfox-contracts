@@ -6,7 +6,7 @@ require("@nomiclabs/hardhat-etherscan");
 require('@openzeppelin/hardhat-upgrades');
 
 require('./tasks/address-generator');
-let secret = require("./secret.json");
+let secret = require("../secret.json");
 const constants = require("../constants.js");
 
 /**
@@ -15,8 +15,6 @@ const constants = require("../constants.js");
 module.exports = {
   etherscan: {
     apiKey: {
-       opera: secret.ftmScanAPI,
-       avalanche: secret.snowtraceAPI,
        bsc: secret.bscScanAPI,
      }
   },
@@ -80,24 +78,15 @@ module.exports = {
           explorer: 'https://bscscan.com/',
           constants: constants.BSC
         },
-        ftmmainnet: {
-            // url: "https://rpcapi.fantom.network/",
-            // url: "https://rpc.ftm.tools/",
-            url: "https://rpc.ankr.com/fantom",
-            chainId: 250,
-            gasPrice: 100000000000, // 20 gwei
-            gas: 1000000000,
-            accounts: [secret.privateKeyMainnet],
-            explorer: 'https://ftmscan.com/',
-        },
-        avalanche: {
-          url: "https://api.avax.network/ext/bc/C/rpc",
-          chainId: 43114,
-          gasPrice: 30000000000, // 30 gwei
+        arbitrum: {
+          url: "https://arb1.arbitrum.io/rpc",
+          chainId: 42161,
+          gasPrice: 100000000, // 0.1 gwei
           gas: 5000000,
           accounts: [secret.privateKeyMainnet],
-          explorer: 'https://snowtrace.io/',
-      }
+          explorer: 'https://arbiscan.io/',
+          constants: constants.ARBITRUM
+        },
     },
     abiExporter: {
         path: './data/abi',

@@ -2,8 +2,6 @@
 pragma solidity 0.8.13;
 
 import './libraries/Math.sol';
-import './interfaces/IBribe.sol';
-import './interfaces/IBribeFactory.sol';
 import './interfaces/IGauge.sol';
 import './interfaces/IGaugeFactory.sol';
 import './interfaces/IERC20.sol';
@@ -13,16 +11,16 @@ import './interfaces/IVotingEscrow.sol';
 import "../lz/lzApp/NonblockingLzApp.sol";
 import "hardhat/console.sol";
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 interface IOFT {
     function mintWeeklyRewards(address _toAddress, uint _amount) external;
 }
 
-contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
+contract VoterV2_1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
-    uint16 public constant SRC_CHAIN_ID = 56; // bsc
+    uint16 public constant SRC_CHAIN_ID = 102; // bsc -- LZ internal chainId numbers
 
     uint public active_period;
 
@@ -30,25 +28,24 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
     address public factory; // the PairFactory
     address internal base;
     address public gaugefactory;
-    address public bribefactory;
     uint internal constant DURATION = 7 days; // rewards are released over 7 days
     address public governor; // should be set to an IGovernor
     address public emergencyCouncil; // credibly neutral party similar to Curve's Emergency DAO
+    address public fees_collector;
+    address public lz_receiver;
 
     address[] public pools; // all pools viable for incentives
     mapping(address => address) public gauges; // pool => gauge
     mapping(address => address) public mainChainGauges; // mainGauge => sideGauge
     mapping(address => uint) public gaugesDistributionTimestmap;
     mapping(address => address) public poolForGauge; // gauge => pool
-    mapping(address => address) public internal_bribes; // gauge => internal bribe (only fees)
-    mapping(address => address) public external_bribes; // gauge => external bribe (real bribes)
     mapping(address => bool) public isGauge;
     mapping(address => bool) public isAlive;
 
     mapping(uint256 => mapping(address => uint256)) public availableEmissions; // epoch => mainGauge => emissions
-    bool public lzOneStepProcess = true; // whether nonblockingLzReceive also distributes or not
+    bool public lzOneStepProcess; // whether nonblockingLzReceive also distributes or not
 
-    event GaugeCreated(address indexed gauge, address creator, address internal_bribe, address indexed external_bribe, address indexed pool);
+    event GaugeCreated(address indexed gauge, address creator, address fees_collector, address indexed pool);
     event GaugeKilled(address indexed gauge);
     event GaugeRevived(address indexed gauge);
     event Deposit(address indexed lp, address indexed gauge, uint tokenId, uint amount);
@@ -59,20 +56,24 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
     event Detach(address indexed owner, address indexed gauge, uint tokenId);
     event LZReceive(uint256 activePeriod, uint256 totalClaimable, address[] gauges, uint256[] amounts);
 
-    constructor(
+    constructor() {}
+
+    function initialize(
         address __ve, 
         address _factory, 
-        address  _gauges, 
-        address _bribes,
-        address _lzEndpoint
-    ) NonblockingLzApp(_lzEndpoint) {
+        address _gauges, 
+        address _fees_collector
+    ) initializer public {
+        __Ownable_init();
+        __ReentrancyGuard_init();
         _ve = __ve;
         factory = _factory;
         base = IVotingEscrow(__ve).token();
         gaugefactory = _gauges;
-        bribefactory = _bribes;
         governor = msg.sender;
         emergencyCouncil = msg.sender;
+        fees_collector = _fees_collector;
+        lzOneStepProcess = true;
     }      
 
     function setGovernor(address _governor) public {
@@ -89,43 +90,24 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         require(msg.sender == governor, "Only governor");
         require(gauges[_pool] == address(0x0), "exists");
         require(mainChainGauges[_mainGauge] == address(0x0), "mainchain gauge exists");
-        address[] memory allowedRewards = new address[](3);
-        address[] memory internalRewards = new address[](2);
         bool isPair = IPairFactory(factory).isPair(_pool);
         address tokenA;
         address tokenB;
 
         if (isPair) {
             (tokenA, tokenB) = IPair(_pool).tokens();
-            allowedRewards[0] = tokenA;
-            allowedRewards[1] = tokenB;
-            internalRewards[0] = tokenA;
-            internalRewards[1] = tokenB;
-
-            if (base != tokenA && base != tokenB) {
-              allowedRewards[2] = base;
-            }
         }
 
-        string memory _type =  string.concat("MF LP Fees: ", IERC20(_pool).symbol() );
-        address _internal_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
-
-        // _type = string.concat("MF Bribes: ", IERC20(_pool).symbol() );
-        address _external_bribe = address(0); // IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
-
-        address _gauge = IGaugeFactory(gaugefactory).createGaugeV2(base, _ve, _pool, address(this), _internal_bribe, _external_bribe, address(0), isPair);
+        address _gauge = IGaugeFactory(gaugefactory).createGaugeV2(base, _ve, _pool, address(this), address(0), address(0), fees_collector, isPair);
         mainChainGauges[_mainGauge] = _gauge;
 
         IERC20(base).approve(_gauge, type(uint).max);
-        internal_bribes[_gauge] = _internal_bribe;
-        external_bribes[_gauge] = _external_bribe;
         gauges[_pool] = _gauge;
         poolForGauge[_gauge] = _pool;
         isGauge[_gauge] = true;
         isAlive[_gauge] = true;
-        // _updateFor(_gauge);
         pools.push(_pool);
-        emit GaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _pool);
+        emit GaugeCreated(_gauge, msg.sender, fees_collector, _pool);
         return _gauge;
     }
 
@@ -133,7 +115,6 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         require(msg.sender == emergencyCouncil, "not emergency council");
         require(isAlive[_gauge], "gauge already dead");
         isAlive[_gauge] = false;
-        // claimable[_gauge] = 0;
         emit GaugeKilled(_gauge);
     }
 
@@ -178,13 +159,6 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         }
     }
 
-    function claimFees(address[] memory _fees, address[][] memory _tokens, uint _tokenId) external {
-        require(IVotingEscrow(_ve).isApprovedOrOwner(msg.sender, _tokenId));
-        for (uint i = 0; i < _fees.length; i++) {
-            IBribe(_fees[i]).getRewardForOwner(_tokenId, _tokens[i]);
-        }
-    }
-
     function distributeFees(address[] memory _gauges) external {
         for (uint i = 0; i < _gauges.length; i++) {
             if (IGauge(_gauges[i]).isForPair()){
@@ -198,10 +172,16 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         lzOneStepProcess = !lzOneStepProcess;
     }
 
-    function _nonblockingLzReceive(uint16 _srcChainId, bytes memory, uint64, bytes memory _payload) internal virtual override {
+    function lzProcessReceive(uint16 _srcChainId, bytes memory, uint64, bytes memory _payload) external {
+        require(msg.sender == lz_receiver, "Unauthorized");
         require(SRC_CHAIN_ID == _srcChainId, "Wrong srcChainId");
 
-        (uint256 activePeriod, uint256 totalClaimable, address[] memory _gauges, uint256[] memory _amounts) = abi.decode(_payload, (uint256, uint256, address[], uint256[]));
+        (
+            uint256 activePeriod, 
+            uint256 totalClaimable, 
+            address[] memory _gauges, 
+            uint256[] memory _amounts
+        ) = abi.decode(_payload, (uint256, uint256, address[], uint256[]));
         
         // Update active period if needed
         if (activePeriod > active_period) {
@@ -252,11 +232,6 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         require(success && (data.length == 0 || abi.decode(data, (bool))));
     }
 
-    function setBribeFactory(address _bribeFactory) external {
-        require(msg.sender == emergencyCouncil);
-        bribefactory = _bribeFactory;
-    }
-
     function setGaugeFactory(address _gaugeFactory) external {
         require(msg.sender == emergencyCouncil);
         gaugefactory = _gaugeFactory;
@@ -272,13 +247,10 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         require(isAlive[_gauge], "gauge already dead");
         isAlive[_gauge] = false;
         address _pool = poolForGauge[_gauge];
-        internal_bribes[_gauge] = address(0);
-        external_bribes[_gauge] = address(0);
         gauges[_pool] = address(0);
         poolForGauge[_gauge] = address(0);
         isGauge[_gauge] = false;
         isAlive[_gauge] = false;
-        // claimable[_gauge] = 0;
         emit GaugeKilled(_gauge);
     }
 
@@ -289,16 +261,22 @@ contract GaugeManager is NonblockingLzApp, ReentrancyGuard {
         IERC20(base).approve(_gauge, type(uint).max);
     }
 
-    function setNewBribe(address _gauge, address _internal, address _external) external {
+    function setFeesCollector(address _fees_collector) external {
         require(msg.sender == emergencyCouncil);
-        require(isGauge[_gauge] = true);
-        internal_bribes[_gauge] = _internal;
-        external_bribes[_gauge] = _external;
+        fees_collector = _fees_collector; 
+    }
+
+    function setLzReceiver(address _lz_receiver) external {
+        require(msg.sender == governor);
+        lz_receiver = _lz_receiver; 
     }
 
     // Moved minter & active_period here, because bribes contract needs it, and we don't have minter on sidechain
     function minter() external view returns (address) {
         return address(this);
     }
-    
+
+    function poolsList() external view returns(address[] memory){
+        return pools;
+    }
 }

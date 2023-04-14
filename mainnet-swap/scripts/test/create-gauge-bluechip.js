@@ -4,7 +4,7 @@ async function main() {
     const addresses = hre.network.config.constants;
     const deployer = (await hre.ethers.getSigners())[0];
 
-    const VOTER = await hre.ethers.getContractAt('VoterV2_1', addresses.voter, deployer);
+    const VOTER = await hre.ethers.getContractAt('BluechipVoter', addresses.bluechipVoter, deployer);
 
     tx = await VOTER.createGauge(addresses.foxLP_volatile_PH_WBNB, 0);
     tx = await VOTER.createGauge(addresses.foxLP_stable_USDC_WBNB, 0);
