@@ -5,17 +5,26 @@ import "./interfaces/IRouter.sol";
 import "./interfaces/IERC20.sol";
 import "hardhat/console.sol";
 
-
 pragma solidity 0.8.13;
 
 contract Receiver is Ownable {
 
-  IRouter swap;
+  IRouter public swap;
 
   mapping(address => IRouter.route[]) public routes;
 
-  constructor(address _swap) {
+  address public receiver;
+
+  constructor(address _swap, address _receiver) {
     swap = IRouter(_swap);
+    receiver = _receiver;
+  }
+
+  function setReceiver(address _receiver)
+    external
+    onlyOwner()
+  {
+    receiver = _receiver;
   }
 
   function setTokenMapping(address _token, IRouter.route[] calldata _routes)
@@ -26,7 +35,16 @@ contract Receiver is Ownable {
     for (uint8 i = 0; i < _routes.length; i++) {
       routes[_token].push(IRouter.route({from: _routes[i].from, to: _routes[i].to, stable: _routes[i].stable}));
     }
-    IERC20(_token).approve(address(swap), type(uint).max);
+    if (_token != address(0)) {
+      IERC20(_token).approve(address(swap), type(uint).max);
+    }
+  }
+
+  function approveERC20(address _token, address _to, uint256 _amount)
+    external
+    onlyOwner()
+  {
+    IERC20(_token).approve(_to, _amount);
   }
 
   function swapTokens(address[] calldata _tokens)
@@ -35,25 +53,28 @@ contract Receiver is Ownable {
     for (uint8 i = 0; i < _tokens.length; i++) {
       if (_tokens[i] != address(0)) {
         uint256 balance = IERC20(_tokens[i]).balanceOf(address(this));
-        uint[] memory amounts = swap.getAmountsOut(balance, routes[_tokens[i]]);
-        uint amountOutMin = amounts[amounts.length - 1];
-        if (balance > 0) {
+        if (balance > 0){
+          uint[] memory amounts = swap.getAmountsOut(balance, routes[_tokens[i]]);
+          uint amountOutMin = amounts[amounts.length - 1];
           swap.swapExactTokensForTokens(balance, amountOutMin, routes[_tokens[i]], address(this), block.timestamp);
         }
       } else {
-        uint[] memory amounts = swap.getAmountsOut(address(this).balance, routes[_tokens[i]]);
-        uint amountOutMin = amounts[amounts.length - 1];
-        swap.swapExactETHForTokens{value: address(this).balance}(amountOutMin, routes[_tokens[i]], address(this), block.timestamp);
+        uint256 balance = address(this).balance;
+        if (balance > 0){
+          uint[] memory amounts = swap.getAmountsOut(balance, routes[_tokens[i]]);
+          uint amountOutMin = amounts[amounts.length - 1];
+          swap.swapExactETHForTokens{value:balance}(amountOutMin, routes[_tokens[i]], address(this), block.timestamp);
+        }
       }
     }
   }
 
-  function withdraw(address _token) external onlyOwner() {
+  function withdraw(address _token) external {
     if (_token == address(0)) {
-      (bool success, ) = owner().call{value: address(this).balance}("");
+      (bool success, ) = receiver.call{value: address(this).balance}("");
       require(success, "receiver rejected transfer");
     } else {
-      IERC20(_token).transfer(msg.sender, IERC20(_token).balanceOf(address(this)));
+      IERC20(_token).transfer(receiver, IERC20(_token).balanceOf(address(this)));
     }
   }
 
@@ -64,4 +85,8 @@ contract Receiver is Ownable {
   {
     _routes = routes[_token];
   }
+
+  fallback() external payable {}
+
+  receive() external payable {}
 }
