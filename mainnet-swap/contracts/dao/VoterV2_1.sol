@@ -13,13 +13,13 @@ import './interfaces/IPairFactory.sol';
 import './interfaces/IVoter.sol';
 import './interfaces/IVotingEscrow.sol';
 import "../lz/interfaces/ILayerZeroEndpoint.sol";
+import "./SidechainPool.sol";
 import "hardhat/console.sol";
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-
-contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
+contract VoterV2_1 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     ILayerZeroEndpoint public constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
 
@@ -70,13 +70,17 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
     event Attach(address indexed owner, address indexed gauge, uint tokenId);
     event Detach(address indexed owner, address indexed gauge, uint tokenId);
 
-    constructor(
+    constructor() {}
+
+    function initialize(
         address __ve, 
         address _factory, 
         address  _gauges, 
         address _bribes,
         address _proxyOFT
-    ) {
+    ) initializer public {
+        __Ownable_init();
+        __ReentrancyGuard_init();
         _ve = __ve;
         factory = _factory;
         base = IVotingEscrow(__ve).token();
@@ -207,6 +211,12 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
 
     function createGauge(address _pool, uint16 chainId) external returns (address) {
         require(msg.sender == governor, "Only governor");
+
+        if(chainId > 0) {
+            // create dummy token -- only placeholder
+            _pool = address(new SidechainPool());
+        }
+
         require(gauges[_pool] == address(0x0), "exists");
         address[] memory allowedRewards = new address[](3);
         address[] memory internalRewards = new address[](2);
@@ -226,15 +236,15 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
             }
         }
 
-        string memory _type =  string.concat("Thena LP Fees: ", IERC20(_pool).symbol() );
+        string memory _type =  string.concat("MF LP Fees: ", IERC20(_pool).symbol() );
         address _internal_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
 
-        _type = string.concat("Thena Bribes: ", IERC20(_pool).symbol() );
+        _type = string.concat("MF Bribes: ", IERC20(_pool).symbol() );
         address _external_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
 
         address _gauge = IGaugeFactory(gaugefactory).createGaugeV2(base, _ve, _pool, address(this), _internal_bribe, _external_bribe, address(0), isPair);
         
-        if(chainId > 0 && chainId != block.chainid) {
+        if(chainId > 0) {
             gaugeChain[_gauge] = chainId;
             chainGauges[chainId].push(_gauge);
         }
@@ -377,13 +387,18 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         }
     }
 
-    function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit) public payable {
-        require(chainId > 0 && chainId != block.chainid, "invalid chainId");
+    function distributeSidechainAll(uint16 chainId, uint256 period, uint256 dstGasLimit) external payable {
+        distributeSidechain(chainId, period, dstGasLimit, 0, chainGauges[chainId].length);
+    }
+
+    function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit, uint256 from, uint256 to) public payable {
+        require(chainId > 0, "invalid chainId");
         address _gauge;
         uint256 _totalClaimable;
-        uint256[] memory _claimable = new uint256[](chainGauges[chainId].length);
-        address[] memory _gauges = new address[](chainGauges[chainId].length);
-        for (uint i = 0; i < chainGauges[chainId].length; i++) {
+        uint256 gaugesToProcess = to - from;
+        uint256[] memory _claimable = new uint256[](gaugesToProcess);
+        address[] memory _gauges = new address[](gaugesToProcess);
+        for (uint i = from; i < to; i++) {
             _gauge = chainGauges[chainId][i];
             _gauges[i] = _gauge;
             _claimable[i] = epochBridgeData[period][_gauge];
@@ -393,7 +408,7 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
 
         if (_totalClaimable > 0) {
             // Bridge rewards & array with claimable amounts per gauge using LZ
-            bytes memory lzPayload = abi.encode(_gauges, _claimable);
+            bytes memory lzPayload = abi.encode(IMinter(minter).active_period(), _totalClaimable, _gauges, _claimable);
 
             bytes memory trustedPath = abi.encodePacked(sidechainManager[chainId], address(this));
             bytes memory adapterParams = abi.encodePacked(uint16(1), dstGasLimit); // has to be at least 200_000
@@ -495,9 +510,9 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
             address tokenB;
             (tokenA, tokenB) = IPair(_pool).tokens();
 
-            string memory _type =  string.concat("Thena LP Fees: ", IERC20(_pool).symbol() );
+            string memory _type =  string.concat("MF LP Fees: ", IERC20(_pool).symbol() );
             address _internal_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
-            _type = string.concat("Thena Bribes: ", IERC20(_pool).symbol() );
+            _type = string.concat("MF Bribes: ", IERC20(_pool).symbol() );
             address _external_bribe = IBribeFactory(bribefactory).createBribe(owner(), tokenA, tokenB, _type);
             IERC20(base).approve(_gauge, type(uint).max);
             internal_bribes[_gauge] = _internal_bribe;
@@ -526,5 +541,19 @@ contract VoterV2_1 is IVoter, Ownable, ReentrancyGuard {
         external_bribes[_gauge] = _external;
     }
 
+    function poolsList() external view returns(address[] memory, address[] memory, uint16[] memory){
+        address[] memory gaugeList = new address[](pools.length);
+        uint16[] memory chainIdList = new uint16[](pools.length);
+        for (uint i = 0; i < pools.length; i++) {
+            gaugeList[i] = gauges[pools[i]];
+            chainIdList[i] = uint16(gaugeChain[gauges[pools[i]]]);
+        }
+
+        return (pools, gaugeList, chainIdList);
+    }
+
+    function chainGaugesList(uint16 _chainId) external view returns(address[] memory){
+        return chainGauges[_chainId];
+    }
     
 }
