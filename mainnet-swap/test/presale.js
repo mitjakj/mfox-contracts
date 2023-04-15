@@ -26,7 +26,7 @@ describe("Presale", function() {
         [owner, investor1, investor2, treasury] = await ethers.getSigners();
 
         // Tokens
-        const TokenContract = await ethers.getContractFactory("Thena");
+        const TokenContract = await ethers.getContractFactory("Token");
 
         USDC = await TokenContract.deploy();
         await USDC.deployed();
