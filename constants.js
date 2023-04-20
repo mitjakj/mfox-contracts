@@ -20,6 +20,16 @@ module.exports = {
     veArt: '0xC40c59364CB5CA8540f1EB402F4350FfCFB8C0b1', 
     veToken: '0xfB7c10D38acbda7DfB464f3781725ffd701B00Ec', 
 
+    /* presale */
+    presale: '0x59433FF533bcEf95b2b543b13fa31Ee056E0469a', 
+    treasury: '0x1bb1C670dC4317751a39EDa11Dc50E1231583306', 
+    shroom: '0x827D4BE081b7bB2a1e3338d56F4197f31DfD6250', 
+    veShroom: '0xD588e41f409B0062647EaBB6cC09e35D6d93AC70', 
+
+    /* chainlink */
+    chainlinkEpochController: '0xd77903eD23A32447784BbCE01E7c067219785F78',
+    chainlinkWeeklyEmissionBridge: '0xff26C390EAF5F0aC56ea1484322d7138a4b351Cd',
+
     /* dao */
     bribeFactory: '0x9C1E5171987E3e11d2Bc5C1f39EA49573b9e0150', 
     gaugeFactory: '0xE20e960743A8D5aeB7f9Af695797A0881bf8c9FD', 
@@ -33,6 +43,10 @@ module.exports = {
     /* LZ */
     lzChainId: 102,
     lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
+
+    /* UpgradableContracts admin */
+    timelocker: '0x5d0d83EF1C1f8217cbD0D3D0802E47B8Bcd72207',
+    proxyAdmin: '0x86E00171EA53d56CCB1C2e62006Bb4e0F8a1f83D' // still need to transfer ownership from deployer to timelocker
   },
 
   ARBITRUM: {
@@ -65,5 +79,9 @@ module.exports = {
     /* LZ */
     lzChainId: 110,
     lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
+
+    /* UpgradableContracts admin */
+    timelocker: '0x5d0d83EF1C1f8217cbD0D3D0802E47B8Bcd72207',
+    proxyAdmin: '0x4bA2d7200f50A53Be0d6572e5C9df53BB53eA6C6' // still need to transfer ownership from deployer to timelocker
   }
 };
