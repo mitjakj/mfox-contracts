@@ -9,6 +9,7 @@ import "./interfaces/IWETH.sol";
 import "./interfaces/IPairFactory.sol";
 import "./interfaces/IPair.sol";
 import "./interfaces/IGauge.sol";
+import "./interfaces/IVotingEscrow.sol";
 import "hardhat/console.sol";
 
 contract MagicZap is ReentrancyGuard {
@@ -17,6 +18,10 @@ contract MagicZap is ReentrancyGuard {
   IRouter public router;
   address public wnative;
   IPairFactory public factory;
+  IVotingEscrow public immutable VE_FOX; // veFOX token contract
+  IVotingEscrow public immutable VE_SHROOM; // veSHROOM token contract
+  IERC20 public immutable FOX; // FOX token contract
+  IERC20 public immutable SHROOM; // SHROOM token contract
 
   struct BalanceLocalVars {
     uint256 amount0;
@@ -29,10 +34,20 @@ contract MagicZap is ReentrancyGuard {
   event Zap(address inputToken, uint256 inputAmount, IRouter.route pair);
   event ZapNative(uint256 inputAmount, IRouter.route pair);
 
-  constructor(address _router) {
+  event ZapFoxStake(address inputToken, uint256 inputAmount);
+
+  constructor(
+    address _router,
+    IVotingEscrow veShroomToken, 
+    IVotingEscrow veFoxToken
+  ) {
     router = IRouter(_router);
     factory = IPairFactory(router.factory());
     wnative = router.weth();
+    VE_FOX = veFoxToken;
+    VE_SHROOM = veShroomToken;
+    SHROOM = IERC20(VE_SHROOM.token());
+    FOX = IERC20(VE_FOX.token()); 
   }
 
   /// @dev The receive method is used as a fallback function in a contract
@@ -70,6 +85,104 @@ contract MagicZap is ReentrancyGuard {
 
     minAmountsSwap = [minAmountSwap0, minAmountSwap1];
     minAmountsLP = [amountA, amountB];
+  }
+
+  function zapFoxStake(
+    IERC20 inputToken,
+    uint256 inputAmount,
+    uint8 inputRatio, // Can be from 0-100. Sets the percentage of first token, the rest is for the second token. 5 mean 5% will be swaped for VE_FOX and 95% for VE_SHROOM.
+    uint stakeLength,
+    IRouter.route[] calldata pathVeFox,
+    IRouter.route[] calldata pathVeShroom,
+    uint256[] memory minAmounts, //[amountASwap, amountBSwap]
+    address to,
+    uint256 deadline)
+    external nonReentrant
+  {
+    _zapFoxStakeInternal(
+      inputToken,
+      inputAmount,
+      inputRatio,
+      stakeLength,
+      pathVeFox,
+      pathVeShroom,
+      minAmounts,
+      to,
+      deadline
+    );
+  }
+
+  function _zapFoxStakeInternal(
+    IERC20 inputToken,
+    uint256 inputAmount,
+    uint8 inputRatio, // Can be from 0-100. Sets the percentage of first token, the rest is for the second token. 5 mean 5% will be swaped for VE_FOX and 95% for VE_SHROOM.
+    uint stakeLength,
+    IRouter.route[] calldata pathVeFox,
+    IRouter.route[] calldata pathVeShroom,
+    uint256[] memory minAmounts, //[amountASwap, amountBSwap]
+    address to,
+    uint256 deadline
+  ) internal {
+    uint256 balanceBefore = _getBalance(inputToken);
+    inputToken.safeTransferFrom(msg.sender, address(this), inputAmount);
+    inputAmount = _getBalance(inputToken) - balanceBefore;
+
+     _zapFoxStakePrivate(
+      inputToken,
+      inputAmount,
+      inputRatio,
+      stakeLength,
+      pathVeFox,
+      pathVeShroom,
+      minAmounts,
+      to,
+      deadline,
+      false
+    );
+
+    emit ZapFoxStake(address(inputToken), minAmounts[0]);
+  }
+
+  function _zapFoxStakePrivate(
+    IERC20 inputToken,
+    uint256 inputAmount,
+    uint8 inputRatio, // Can be from 0-100. Sets the percentage of first token, the rest is for the second token. 5 mean 5% will be swaped for VE_FOX and 95% for VE_SHROOM.
+    uint stakeLength,
+    IRouter.route[] calldata pathVeFox,
+    IRouter.route[] calldata pathVeShroom,
+    uint256[] memory minAmounts, //[amountASwap, amountBSwap]
+    address to,
+    uint256 deadline,
+    bool native
+  ) private {
+    require(to != address(0), "Zap: Can't zap to null address");
+    require(inputRatio <= 100, "Zap: Can't zap with percentage higher then 100%");
+  
+    inputToken.approve(address(router), inputAmount);
+    BalanceLocalVars memory vars;
+
+    vars.amount0 = inputAmount / 100 * inputRatio;
+    vars.balanceBefore = 0;
+    
+    if (vars.amount0 > 0) {
+      require(pathVeFox[0].from == address(inputToken), "Zap: wrong path path0[0]");
+      require(pathVeFox[pathVeFox.length - 1].to == address(FOX), "Zap: wrong path path0[-1]");
+      vars.balanceBefore = _getBalance(FOX);
+      router.swapExactTokensForTokens(vars.amount0, minAmounts[0], pathVeFox, address(this), deadline);
+      vars.amount0 = _getBalance(FOX) - vars.balanceBefore;
+      VE_FOX.create_lock_for(vars.amount0, stakeLength, to);
+    }
+
+    vars.amount1 = inputAmount / 100 * (100 - inputRatio);
+    
+    if(vars.amount1 > 0) {
+      require(pathVeShroom[0].from == address(inputToken), "Zap: wrong path path1[0]");
+      require(pathVeShroom[pathVeShroom.length - 1].to == address(SHROOM), "Zap: wrong path path1[-1]");
+      vars.balanceBefore = _getBalance(SHROOM);
+      router.swapExactTokensForTokens(vars.amount1, minAmounts[1], pathVeShroom, address(this), deadline);
+      vars.amount1 = _getBalance(SHROOM) - vars.balanceBefore;
+      VE_SHROOM.create_lock_for(vars.amount1, stakeLength, to);
+    }
   }
 
   function zap(
