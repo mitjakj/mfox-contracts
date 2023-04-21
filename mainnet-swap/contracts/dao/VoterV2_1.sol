@@ -509,7 +509,7 @@ contract VoterV2_1 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         external_bribes[_gauge] = _external;
     }
 
-    function poolsList() external view returns(address[] memory, address[] memory, uint16[] memory){
+    function gaugeListExtended() external view returns(address[] memory, address[] memory, uint16[] memory){
         address[] memory poolList = new address[](gaugeList.length);
         uint16[] memory chainIdList = new uint16[](gaugeList.length);
         for (uint i = 0; i < gaugeList.length; i++) {
