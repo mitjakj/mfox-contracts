@@ -174,7 +174,6 @@ contract VoterV2_1 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         for (uint i = 0; i < _gaugeCnt; i++) {
-            // address _pool = _poolVote[i];
             address _gauge = _gaugeVote[i];
 
             if (isGauge[_gauge]) {
@@ -250,7 +249,6 @@ contract VoterV2_1 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         IERC20(base).approve(_gauge, type(uint).max);
         internal_bribes[_gauge] = _internal_bribe;
         external_bribes[_gauge] = _external_bribe;
-        // gauges[_pool] = _gauge;
         poolForGauge[_gauge] = _pool;
         isGauge[_gauge] = true;
         isAlive[_gauge] = true;
@@ -489,10 +487,8 @@ contract VoterV2_1 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(isAlive[_gauge], "gauge already dead");
         isAlive[_gauge] = false;
         claimable[_gauge] = 0;
-        //address _pool = poolForGauge[_gauge];
         internal_bribes[_gauge] = address(0);
         external_bribes[_gauge] = address(0);
-        //gauges[_pool] = address(0);
         poolForGauge[_gauge] = address(0);
         isGauge[_gauge] = false;
         isAlive[_gauge] = false;
