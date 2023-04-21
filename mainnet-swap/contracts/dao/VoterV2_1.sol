@@ -386,7 +386,7 @@ contract VoterV2_1 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         distributeSidechain(chainId, period, dstGasLimit, 0, chainGauges[chainId].length);
     }
 
-    function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit, uint256 from, uint256 to) public payable {
+    function distributeSidechain(uint16 chainId, uint256 period, uint256 dstGasLimit, uint256 from, uint256 to) public payable nonReentrant {
         require(chainId > 0, "invalid chainId");
         address _gauge;
         uint256 _totalClaimable;
@@ -414,7 +414,8 @@ contract VoterV2_1 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
             IERC20(base).transfer(proxyOFT, _totalClaimable);
         } else {
             // Return lzgas to sender
-            payable(msg.sender).transfer(msg.value);
+            (bool success, ) = msg.sender.call{value: msg.value}("");
+            require(success, "msg.sender rejected transfer");
         }
     }
 
