@@ -38,8 +38,8 @@ contract MagicZap is ReentrancyGuard {
 
   constructor(
     address _router,
-    IVotingEscrow veShroomToken, 
-    IVotingEscrow veFoxToken
+    IVotingEscrow veFoxToken,
+    IVotingEscrow veShroomToken
   ) {
     router = IRouter(_router);
     factory = IPairFactory(router.factory());
@@ -48,6 +48,10 @@ contract MagicZap is ReentrancyGuard {
     VE_SHROOM = veShroomToken;
     SHROOM = IERC20(VE_SHROOM.token());
     FOX = IERC20(VE_FOX.token()); 
+
+    // set max approval for veFOX/veSHROOM locking
+    FOX.approve(address(VE_FOX), type(uint256).max);
+    SHROOM.approve(address(VE_SHROOM), type(uint256).max);
   }
 
   /// @dev The receive method is used as a fallback function in a contract
@@ -85,6 +89,27 @@ contract MagicZap is ReentrancyGuard {
 
     minAmountsSwap = [minAmountSwap0, minAmountSwap1];
     minAmountsLP = [amountA, amountB];
+  }
+
+  function zapFoxStakeNative(
+    uint8 inputRatio, // Can be from 0-100. Sets the percentage of first token, the rest is for the second token. 5 mean 5% will be swaped for VE_FOX and 95% for VE_SHROOM.
+    uint stakeLength,
+    IRouter.route[] calldata pathVeFox,
+    IRouter.route[] calldata pathVeShroom,
+    uint256[] memory minAmounts, //[amountASwap, amountBSwap]
+    address to,
+    uint256 deadline)
+    external payable nonReentrant
+  {
+    _zapFoxStakeNativeInternal(
+      inputRatio,
+      stakeLength,
+      pathVeFox,
+      pathVeShroom,
+      minAmounts,
+      to,
+      deadline
+    );
   }
 
   function zapFoxStake(
@@ -136,8 +161,35 @@ contract MagicZap is ReentrancyGuard {
       pathVeShroom,
       minAmounts,
       to,
-      deadline,
-      false
+      deadline
+    );
+
+    emit ZapFoxStake(address(inputToken), minAmounts[0]);
+  }
+
+  function _zapFoxStakeNativeInternal(
+    uint8 inputRatio, // Can be from 0-100. Sets the percentage of first token, the rest is for the second token. 5 mean 5% will be swaped for VE_FOX and 95% for VE_SHROOM.
+    uint stakeLength,
+    IRouter.route[] calldata pathVeFox,
+    IRouter.route[] calldata pathVeShroom,
+    uint256[] memory minAmounts, //[amountASwap, amountBSwap]
+    address to,
+    uint256 deadline
+  ) internal {
+    uint256 inputAmount = msg.value;
+    IERC20 inputToken = IERC20(wnative);
+    IWETH(wnative).deposit{value: inputAmount}();
+
+    _zapFoxStakePrivate(
+      inputToken,
+      inputAmount,
+      inputRatio,
+      stakeLength,
+      pathVeFox,
+      pathVeShroom,
+      minAmounts,
+      to,
+      deadline
     );
 
     emit ZapFoxStake(address(inputToken), minAmounts[0]);
@@ -152,8 +204,7 @@ contract MagicZap is ReentrancyGuard {
     IRouter.route[] calldata pathVeShroom,
     uint256[] memory minAmounts, //[amountASwap, amountBSwap]
     address to,
-    uint256 deadline,
-    bool native
+    uint256 deadline
   ) private {
     require(to != address(0), "Zap: Can't zap to null address");
     require(inputRatio <= 100, "Zap: Can't zap with percentage higher then 100%");

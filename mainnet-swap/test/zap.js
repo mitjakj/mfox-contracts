@@ -6,6 +6,7 @@ describe.only("Zap", function () {
   let owner, tokenOwner, investor, user;
   let pairFactory, router, WETH, tokenA, tokenB, tokenC;
   let zap, BCpair;
+  let ART, VE_FOX, VE_SHROOM; // Contracts
 
   before(async () => {
     await hre.network.provider.send("hardhat_reset");
@@ -39,9 +40,24 @@ describe.only("Zap", function () {
     router = await routerContract.deploy(pairFactory.address, WETH.address);
     await router.deployed();
 
+    const ArtContract = await ethers.getContractFactory("VeArt");
+    ART = await ArtContract.deploy();
+    await ART.deployed();
+
+    const VeContract = await ethers.getContractFactory("VotingEscrow");
+    VE_FOX = await VeContract.deploy(tokenA.address, ART.address);
+    await VE_FOX.deployed();
+
+    VE_SHROOM = await VeContract.deploy(tokenB.address, ART.address);
+    await VE_SHROOM.deployed();
+
     // Zap
     const zapContract = await ethers.getContractFactory("MagicZap");
-    zap = await zapContract.deploy(router.address);
+    zap = await zapContract.deploy(
+      router.address,
+      VE_FOX.address,
+      VE_SHROOM.address
+    );
     await zap.deployed();
 
     // Pairs
@@ -206,7 +222,6 @@ describe.only("Zap", function () {
   });
 
   it("Zaps native without staking", async function () {
-    let amountSmall = ethers.utils.parseUnits("10000", 18);
     const pair = { from: tokenB.address, to: tokenC.address, stable: true };
     const path0 = [
       { from: WETH.address, to: tokenA.address, stable: true },
@@ -234,5 +249,159 @@ describe.only("Zap", function () {
 
     console.log(await tokenA.provider.getBalance(user.address));
     console.log(await BCpair.balanceOf(user.address));
+  });
+
+  it("Zaps fox stake 50/50", async function () {
+    let amountSmall = ethers.utils.parseUnits("10000", 18);
+    const path0 = [{ from: tokenC.address, to: tokenA.address, stable: true }];
+    const path1 = [{ from: tokenC.address, to: tokenB.address, stable: true }];
+
+    const deadline = 2147483647; // 2**31-1
+    console.log(await tokenC.balanceOf(user.address));
+    console.log(await tokenA.balanceOf(VE_FOX.address));
+
+    await tokenC.connect(user).approve(zap.address, amountSmall);
+    await zap.connect(user).zapFoxStake(
+      tokenC.address,
+      amountSmall,
+      50,
+      31536000, // 365 days
+      path0,
+      path1,
+      [0, 0],
+      user.address,
+      deadline
+    );
+
+    console.log(await tokenC.balanceOf(user.address));
+    console.log(await tokenA.balanceOf(VE_FOX.address));
+    console.log(await tokenB.balanceOf(VE_SHROOM.address));
+
+    const NFT_FOX_1 = await VE_FOX.tokenOfOwnerByIndex(user.address, 0);
+    const NFT_SHROOM_1 = await VE_SHROOM.tokenOfOwnerByIndex(user.address, 0);
+
+    expect(NFT_FOX_1).to.be.above(0);
+    expect(NFT_SHROOM_1).to.be.above(0);
+  });
+
+  it("Zaps fox stake 100 / 0", async function () {
+    let amountSmall = ethers.utils.parseUnits("10000", 18);
+    const path0 = [{ from: tokenC.address, to: tokenA.address, stable: true }];
+    const path1 = [{ from: tokenC.address, to: tokenB.address, stable: true }];
+
+    const deadline = 2147483647; // 2**31-1
+    console.log(await tokenC.balanceOf(user.address));
+    console.log(await tokenA.balanceOf(VE_FOX.address));
+
+    await tokenC.connect(user).approve(zap.address, amountSmall);
+    await zap.connect(user).zapFoxStake(
+      tokenC.address,
+      amountSmall,
+      100,
+      31536000, // 365 days
+      path0,
+      path1,
+      [0, 0],
+      user.address,
+      deadline
+    );
+
+    console.log(await tokenC.balanceOf(user.address));
+    console.log(await tokenA.balanceOf(VE_FOX.address));
+    console.log(await tokenB.balanceOf(VE_SHROOM.address));
+
+    const NFT_FOX_1 = await VE_FOX.tokenOfOwnerByIndex(user.address, 0);
+    const NFT_SHROOM_1 = await VE_SHROOM.tokenOfOwnerByIndex(user.address, 0);
+
+    expect(NFT_FOX_1).to.be.above(0);
+    expect(NFT_SHROOM_1).to.be.equal(0);
+  });
+
+  it("Zaps fox stake 0 / 100", async function () {
+    let amountSmall = ethers.utils.parseUnits("10000", 18);
+    const path0 = [{ from: tokenC.address, to: tokenA.address, stable: true }];
+    const path1 = [{ from: tokenC.address, to: tokenB.address, stable: true }];
+
+    const deadline = 2147483647; // 2**31-1
+    console.log(await tokenC.balanceOf(user.address));
+    console.log(await tokenA.balanceOf(VE_FOX.address));
+
+    await tokenC.connect(user).approve(zap.address, amountSmall);
+    await zap.connect(user).zapFoxStake(
+      tokenC.address,
+      amountSmall,
+      0,
+      31536000, // 365 days
+      path0,
+      path1,
+      [0, 0],
+      user.address,
+      deadline
+    );
+
+    console.log(await tokenC.balanceOf(user.address));
+    console.log(await tokenA.balanceOf(VE_FOX.address));
+    console.log(await tokenB.balanceOf(VE_SHROOM.address));
+
+    const NFT_FOX_1 = await VE_FOX.tokenOfOwnerByIndex(user.address, 0);
+    const NFT_SHROOM_1 = await VE_SHROOM.tokenOfOwnerByIndex(user.address, 0);
+
+    expect(NFT_FOX_1).to.be.equal(0);
+    expect(NFT_SHROOM_1).to.be.above(0);
+  });
+
+  it("Zaps fox stake reverts for more then 100%", async function () {
+    let amountSmall = ethers.utils.parseUnits("10000", 18);
+    const path0 = [{ from: tokenC.address, to: tokenA.address, stable: true }];
+    const path1 = [{ from: tokenC.address, to: tokenB.address, stable: true }];
+
+    const deadline = 2147483647; // 2**31-1
+
+    await tokenC.connect(user).approve(zap.address, amountSmall);
+    await expect(
+      zap.connect(user).zapFoxStake(
+        tokenC.address,
+        amountSmall,
+        101,
+        31536000, // 365 days
+        path0,
+        path1,
+        [0, 0],
+        user.address,
+        deadline
+      )
+    ).to.be.reverted;
+  });
+
+  it("Zaps fox stake NATIVE 50/50", async function () {
+    const path0 = [{ from: WETH.address, to: tokenA.address, stable: true }];
+    const path1 = [
+      { from: WETH.address, to: tokenA.address, stable: true },
+      { from: tokenA.address, to: tokenB.address, stable: true },
+    ];
+
+    const deadline = 2147483647; // 2**31-1
+
+    console.log(await tokenA.provider.getBalance(user.address));
+    await zap.connect(user).zapFoxStakeNative(
+      50,
+      31536000, // 365 days
+      path0,
+      path1,
+      [0, 0],
+      user.address,
+      deadline,
+      { value: ethers.utils.parseEther("1.0") }
+    );
+
+    console.log(await tokenA.provider.getBalance(user.address));
+    console.log(await tokenA.balanceOf(VE_FOX.address));
+    console.log(await tokenB.balanceOf(VE_SHROOM.address));
+
+    const NFT_FOX_1 = await VE_FOX.tokenOfOwnerByIndex(user.address, 0);
+    const NFT_SHROOM_1 = await VE_SHROOM.tokenOfOwnerByIndex(user.address, 0);
+
+    expect(NFT_FOX_1).to.be.above(0);
+    expect(NFT_SHROOM_1).to.be.above(0);
   });
 });
