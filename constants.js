@@ -1,15 +1,5 @@
 module.exports = {
   BSC: {
-    /* general */
-    weth: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
-    usdt: '0x55d398326f99059fF775485246999027B3197955',
-    usdc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-
-    /* LPs */
-    foxLP_volatile_PH_WBNB: '',
-    foxLP_stable_USDC_USDT: '',
-    foxLP_stable_USDC_WBNB: '',
-
     /* swap */
     pairFactory: '0x407a4cDA343037FBCF7fdAEC97e0a8597437c860', 
     swapRouter: '0x654F131605Fb2e8DB48bAD8a4077973DfFDDA01C', 
@@ -46,18 +36,21 @@ module.exports = {
 
     /* UpgradableContracts admin */
     timelocker: '',
-    proxyAdmin: '0x78AE0bACB5771E265Fe530A4EF9DDDbD3467f6eb' // still need to transfer ownership from deployer to timelocker
+    proxyAdmin: '0x78AE0bACB5771E265Fe530A4EF9DDDbD3467f6eb', // still need to transfer ownership from deployer to timelocker
+
+    /* ERC20 */
+    weth: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+    usdt: '0x55d398326f99059fF775485246999027B3197955',
+    usdc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+
+    /* LPs */
+    foxLP_volatile_USDC_WBNB: '0x06bAF8226fC172158e81F30C9Ff186cB17749543',
+    foxLP_volatile_USDT_BUSD: '0xC4Fe3cC91Af574b5255f1079BAd60776181e639F',
+    foxLP_stable_USDT_USDC: '0x9592B1B6D156D6a79848607928D60afc6D9e926c',
+    foxLP_volatile_PH_WBNB: '0xB85E0AA0e96f46a93fFEb2d0be22Cb09F191117b',
   },
 
   ARBITRUM: {
-    /* general */
-    weth: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
-    usdt: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-    usdc: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
-
-    foxLP_volatile_PH_WETH: '',
-    foxLP_volatile_PH_USDC: '',
-
     /* swap */
     pairFactory: '', 
     swapRouter: '', 
@@ -82,6 +75,15 @@ module.exports = {
 
     /* UpgradableContracts admin */
     timelocker: '',
-    proxyAdmin: '' // still need to transfer ownership from deployer to timelocker
+    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+
+    /* ERC20 */
+    weth: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    usdt: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    usdc: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+
+    /* LPs */
+    foxLP_volatile_PH_WETH: '',
+    foxLP_volatile_PH_USDC: '',
   }
 };
