@@ -17,7 +17,7 @@ module.exports = {
     veShroom: '', 
 
     /* chainlink */
-    chainlinkEpochController: '',
+    chainlinkEpochController: '0x18aC685D8D40eCBA614dcae0EBc35313DFD2eD84',
     chainlinkWeeklyEmissionBridge: '',
 
     /* dao */
@@ -52,17 +52,17 @@ module.exports = {
 
   ARBITRUM: {
     /* swap */
-    pairFactory: '', 
-    swapRouter: '', 
+    pairFactory: '0x407a4cDA343037FBCF7fdAEC97e0a8597437c860', 
+    swapRouter: '0x654F131605Fb2e8DB48bAD8a4077973DfFDDA01C', 
+    solidlyLib: '0xB48837F0C05c0931c7B3DcFDceA0365396c39F3A',
 
     /* token */
-    token: '', 
-    veArt: '', 
-    veToken: '', 
+    token: '0x6EB19f9D45DD3aa8fED5A5F30434F4c3858973CA', 
+    veToken: '0x78AE0bACB5771E265Fe530A4EF9DDDbD3467f6eb', 
 
     /* dao */
-    bribeFactory: '', 
-    gaugeFactory: '', 
+    bribeFactory: '0xb241D311f1114ECb6E210c40b0F2040AC8cD485e', 
+    gaugeFactory: '0xAa3e74d0729227a232e198C98Dfd5ab813b23b37', 
     voter: '',
     bluechipVoter: '',
     bluechipFeeCollector: '', 
@@ -75,7 +75,7 @@ module.exports = {
 
     /* UpgradableContracts admin */
     timelocker: '',
-    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+    proxyAdmin: '0x4d5DC125BA9a9330d983DD4C0B915Cb726D7f2D5', // still need to transfer ownership from deployer to timelocker
 
     /* ERC20 */
     weth: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
