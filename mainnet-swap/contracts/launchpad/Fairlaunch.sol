@@ -12,7 +12,24 @@ interface IVotingEscrow {
   function create_lock_for(uint _value, uint _lock_duration, address _to) external returns (uint);
 }
 
-contract Presale is Ownable, ReentrancyGuard {
+interface IRouter {
+  function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external returns (uint256[] memory amounts);
+
+    function swapExactETHForTokens(
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external payable returns (uint256[] memory amounts);
+}
+
+contract Fairlaunch is Ownable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
@@ -56,6 +73,9 @@ contract Presale is Ownable, ReentrancyGuard {
   uint256 public constant VE_TOKEN_SHARE = 40; // ~ 40% of FOX/SHROOM bought is returned as veFOX/veSHROOM
 
   address public immutable treasury; // treasury multisig, will receive raised amount
+
+  mapping(address => bool) public zapWhitelistedTokens;
+  IRouter public constant router = IRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
   constructor(
     IERC20 foxToken, 
@@ -187,54 +207,61 @@ contract Presale is Ownable, ReentrancyGuard {
   /****************** EXTERNAL PUBLIC FUNCTIONS  ******************/
   /****************************************************************/
 
-  /**
-   * @dev Purchase an allocation for the sale for a value of "amount" SALE_TOKEN, referred by "referralAddress"
-   */
   function buy(uint256 amount, address referralAddress) external isSaleActive nonReentrant {
-    require(amount > 0, "buy: zero amount");
+    _buy(amount, referralAddress);
+  }
 
-    uint256 participationAmount = amount;
-    UserInfo storage user = userInfo[msg.sender];
+  function zapAndBuy(
+    address inputToken, 
+    uint256 inputAmount, 
+    address[] calldata path,
+    address referralAddress
+  ) external payable isSaleActive nonReentrant {
+    require(
+        zapWhitelistedTokens[inputToken],
+        "inputToken is not zap whitelisted"
+    );
 
-    // handle user's referral
-    if (user.allocationFOX == 0 && user.ref == address(0) && referralAddress != address(0) && referralAddress != msg.sender) {
-      // If first buy, and does not have any ref already set
-      user.ref = referralAddress;
-    }
-    referralAddress = user.ref;
-
-    if (referralAddress != address(0)) {
-      UserInfo storage referrer = userInfo[referralAddress];
-
-      // compute and send referrer share
-      uint256 refShareAmount = REFERRAL_SHARE.mul(amount).div(100);
-      SALE_TOKEN.safeTransferFrom(msg.sender, address(this), refShareAmount);
-
-      referrer.refEarnings = referrer.refEarnings.add(refShareAmount);
-      participationAmount = participationAmount.sub(refShareAmount);
-
-      emit NewRefEarning(referralAddress, refShareAmount);
+    if (inputToken != address(0)) {
+      IERC20(inputToken).approve(address(router), inputAmount);
     }
 
-    // 50% in FOX
-    uint256 allocationFOX = amount.mul(50).div(100);
-    // 50% in SHROOM
-    uint256 allocationSHROOM = amount - allocationFOX;
+    require(
+        path[0] == address(inputToken),
+        "wrong path path[0]"
+    );
+    require(
+        path[path.length - 1] == address(SALE_TOKEN),
+        "wrong path path[-1]"
+    );
 
-    // update raised amounts
-    user.contribution = user.contribution.add(amount);
-    totalRaised = totalRaised.add(amount);
+    uint256 balanceBefore = SALE_TOKEN.balanceOf(address(this));
 
-    // update allocations
-    user.allocationFOX = user.allocationFOX.add(allocationFOX);
-    totalAllocationFOX = totalAllocationFOX.add(allocationFOX);
+    if (inputToken != address(0)) {
+      router.swapExactTokensForTokens(
+          inputAmount,
+          0,
+          path,
+          address(this),
+          block.timestamp
+      );
+    } else {
+      router.swapExactETHForTokens{value: msg.value}(
+          0,
+          path,
+          address(this),
+          block.timestamp
+      );
+    }
 
-    user.allocationSHROOM = user.allocationSHROOM.add(allocationSHROOM);
-    totalAllocationSHROOM = totalAllocationSHROOM.add(allocationSHROOM);
+    uint256 balanceAfter = SALE_TOKEN.balanceOf(address(this));
 
-    emit Buy(msg.sender, amount);
-    // transfer contribution to treasury
-    SALE_TOKEN.safeTransferFrom(msg.sender, treasury, participationAmount);
+    uint256 amount;
+    if (balanceAfter > balanceBefore) {
+      amount = balanceAfter - balanceBefore;
+    }
+
+    _buy(amount, referralAddress);
   }
 
   /**
@@ -294,6 +321,12 @@ contract Presale is Ownable, ReentrancyGuard {
     uint256 eligibleAmount;
   }
 
+  function zapWhitelist(address[] calldata _tokens, bool whitelist) external onlyOwner {
+    for (uint i = 0; i < _tokens.length; i++) {
+      zapWhitelistedTokens[_tokens[i]] = whitelist;
+    }
+  }
+
   function setLpTokens(address _foxLpToken, address _shroomLpToken) external onlyOwner {
     require(_foxLpToken != address(0), "Zero address not allowed.");
     require(_shroomLpToken != address(0), "Zero address not allowed.");
@@ -317,6 +350,56 @@ contract Presale is Ownable, ReentrancyGuard {
   /********************************************************/
   /****************** INTERNAL FUNCTIONS ******************/
   /********************************************************/
+
+  /**
+   * @dev Purchase an allocation for the sale for a value of "amount" SALE_TOKEN, referred by "referralAddress"
+   */
+  function _buy(uint256 amount, address referralAddress) private {
+    require(amount > 0, "buy: zero amount");
+
+    uint256 participationAmount = amount;
+    UserInfo storage user = userInfo[msg.sender];
+
+    // handle user's referral
+    if (user.allocationFOX == 0 && user.ref == address(0) && referralAddress != address(0) && referralAddress != msg.sender) {
+      // If first buy, and does not have any ref already set
+      user.ref = referralAddress;
+    }
+    referralAddress = user.ref;
+
+    if (referralAddress != address(0)) {
+      UserInfo storage referrer = userInfo[referralAddress];
+
+      // compute and send referrer share
+      uint256 refShareAmount = REFERRAL_SHARE.mul(amount).div(100);
+      SALE_TOKEN.safeTransferFrom(msg.sender, address(this), refShareAmount);
+
+      referrer.refEarnings = referrer.refEarnings.add(refShareAmount);
+      participationAmount = participationAmount.sub(refShareAmount);
+
+      emit NewRefEarning(referralAddress, refShareAmount);
+    }
+
+    // 50% in FOX
+    uint256 allocationFOX = amount.mul(50).div(100);
+    // 50% in SHROOM
+    uint256 allocationSHROOM = amount - allocationFOX;
+
+    // update raised amounts
+    user.contribution = user.contribution.add(amount);
+    totalRaised = totalRaised.add(amount);
+
+    // update allocations
+    user.allocationFOX = user.allocationFOX.add(allocationFOX);
+    totalAllocationFOX = totalAllocationFOX.add(allocationFOX);
+
+    user.allocationSHROOM = user.allocationSHROOM.add(allocationSHROOM);
+    totalAllocationSHROOM = totalAllocationSHROOM.add(allocationSHROOM);
+
+    emit Buy(msg.sender, amount);
+    // transfer contribution to treasury
+    SALE_TOKEN.safeTransferFrom(msg.sender, treasury, participationAmount);
+  }
 
   /**
    * @dev Safe token transfer function, in case rounding error causes contract to not have enough tokens
