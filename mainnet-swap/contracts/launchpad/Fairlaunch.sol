@@ -12,21 +12,12 @@ interface IVotingEscrow {
   function create_lock_for(uint _value, uint _lock_duration, address _to) external returns (uint);
 }
 
-interface IRouter {
-  function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
-
-    function swapExactETHForTokens(
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external payable returns (uint256[] memory amounts);
+interface IZap {
+  function convert(
+      address inputToken, 
+      uint256 inputAmount, 
+      address[] calldata path
+    ) external payable returns (uint256);
 }
 
 contract Fairlaunch is Ownable, ReentrancyGuard {
@@ -73,9 +64,7 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
   uint256 public constant VE_TOKEN_SHARE = 40; // ~ 40% of FOX/SHROOM bought is returned as veFOX/veSHROOM
 
   address public immutable treasury; // treasury multisig, will receive raised amount
-
-  mapping(address => bool) public zapWhitelistedTokens;
-  IRouter public constant router = IRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+  IZap public immutable zap;
 
   constructor(
     IERC20 foxToken, 
@@ -85,10 +74,12 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
     IERC20 saleToken, 
     uint256 startTime, 
     uint256 endTime, 
-    address treasury_
+    address treasury_,
+    IZap zap_
   ) {
     require(startTime < endTime, "invalid dates");
     require(treasury_ != address(0), "invalid treasury");
+    require(address(zap_) != address(0), "invalid zap");
 
     FOX = foxToken;
     VE_FOX = veFoxToken;
@@ -98,6 +89,7 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
     START_TIME = startTime;
     END_TIME = endTime;
     treasury = treasury_;
+    zap = zap_;
 
     // set max approval for veFOX/veSHROOM locking
     FOX.approve(address(VE_FOX), type(uint256).max);
@@ -208,7 +200,7 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
   /****************************************************************/
 
   function buy(uint256 amount, address referralAddress) external isSaleActive nonReentrant {
-    _buy(amount, referralAddress);
+    _buy(amount, referralAddress, false);
   }
 
   function zapAndBuy(
@@ -218,15 +210,6 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
     address referralAddress
   ) external payable isSaleActive nonReentrant {
     require(
-        zapWhitelistedTokens[inputToken],
-        "inputToken is not zap whitelisted"
-    );
-
-    if (inputToken != address(0)) {
-      IERC20(inputToken).approve(address(router), inputAmount);
-    }
-
-    require(
         path[0] == address(inputToken),
         "wrong path path[0]"
     );
@@ -235,33 +218,13 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
         "wrong path path[-1]"
     );
 
-    uint256 balanceBefore = SALE_TOKEN.balanceOf(address(this));
+    uint256 amount = zap.convert{value: msg.value}(
+      inputToken,
+      inputAmount,
+      path
+    );
 
-    if (inputToken != address(0)) {
-      router.swapExactTokensForTokens(
-          inputAmount,
-          0,
-          path,
-          address(this),
-          block.timestamp
-      );
-    } else {
-      router.swapExactETHForTokens{value: msg.value}(
-          0,
-          path,
-          address(this),
-          block.timestamp
-      );
-    }
-
-    uint256 balanceAfter = SALE_TOKEN.balanceOf(address(this));
-
-    uint256 amount;
-    if (balanceAfter > balanceBefore) {
-      amount = balanceAfter - balanceBefore;
-    }
-
-    _buy(amount, referralAddress);
+    _buy(amount, referralAddress, true);
   }
 
   /**
@@ -321,12 +284,6 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
     uint256 eligibleAmount;
   }
 
-  function zapWhitelist(address[] calldata _tokens, bool whitelist) external onlyOwner {
-    for (uint i = 0; i < _tokens.length; i++) {
-      zapWhitelistedTokens[_tokens[i]] = whitelist;
-    }
-  }
-
   function setLpTokens(address _foxLpToken, address _shroomLpToken) external onlyOwner {
     require(_foxLpToken != address(0), "Zero address not allowed.");
     require(_shroomLpToken != address(0), "Zero address not allowed.");
@@ -354,7 +311,7 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
   /**
    * @dev Purchase an allocation for the sale for a value of "amount" SALE_TOKEN, referred by "referralAddress"
    */
-  function _buy(uint256 amount, address referralAddress) private {
+  function _buy(uint256 amount, address referralAddress, bool isZap) private {
     require(amount > 0, "buy: zero amount");
 
     uint256 participationAmount = amount;
@@ -372,7 +329,11 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
 
       // compute and send referrer share
       uint256 refShareAmount = REFERRAL_SHARE.mul(amount).div(100);
-      SALE_TOKEN.safeTransferFrom(msg.sender, address(this), refShareAmount);
+      SALE_TOKEN.safeTransferFrom(
+        isZap ? address(zap) : msg.sender, 
+        address(this), 
+        refShareAmount
+      );
 
       referrer.refEarnings = referrer.refEarnings.add(refShareAmount);
       participationAmount = participationAmount.sub(refShareAmount);
@@ -398,7 +359,11 @@ contract Fairlaunch is Ownable, ReentrancyGuard {
 
     emit Buy(msg.sender, amount);
     // transfer contribution to treasury
-    SALE_TOKEN.safeTransferFrom(msg.sender, treasury, participationAmount);
+    SALE_TOKEN.safeTransferFrom(
+      isZap ? address(zap) : msg.sender, 
+      treasury, 
+      participationAmount
+    );
   }
 
   /**
