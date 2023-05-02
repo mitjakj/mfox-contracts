@@ -6,9 +6,14 @@ async function main() {
 
     const TOKEN = await hre.ethers.getContractAt('ProxyOFT', constants.BSC.proxyOFT, deployer);
     
-    let tx = await TOKEN.setTrustedRemoteAddress(constants.ARBITRUM.lzChainId, constants.ARBITRUM.token);
+    let tx;
+    tx = await TOKEN.setTrustedRemoteAddress(constants.ARBITRUM.lzChainId, constants.ARBITRUM.token);
     await tx.wait();
-    console.log("setTrustedRemoteAddress");
+    console.log("setTrustedRemoteAddress ARBITRUM");
+
+    tx = await TOKEN.setTrustedRemoteAddress(constants.POLYGON.lzChainId, constants.POLYGON.token);
+    await tx.wait();
+    console.log("setTrustedRemoteAddress POLYGON");
 }
 
 main()
