@@ -12,11 +12,11 @@ module.exports = {
     veToken: '0x4b749A14e8A1cC008eD7c89F7652537065191bbd', 
 
     /* fairlaunch */
-    fairlaunch: '', 
-    fairlaunchZap: '', 
-    treasury: '', 
-    shroom: '', 
-    veShroom: '', 
+    fairlaunch: '0x2498F6668b7970F42e4AB93d50E501e5ed513264', 
+    fairlaunchZap: '0xcb8Edbe8028A026cED02b1160e43166B62305beF', 
+    treasury: '0x0b013649982c9f2623eC15d4fFF62EC1cB6Dc8e5', 
+    shroom: '0x967F4B82D8B7eD38f655CCf084150180c8165AC5', 
+    veShroom: '0x6a07Cc5C621d8A1f8Ce25f449B49FaAD5dCBb8Ee', 
 
     /* chainlink */
     chainlinkEpochController: '',
@@ -45,6 +45,9 @@ module.exports = {
     wbnb: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
     usdt: '0x55d398326f99059fF775485246999027B3197955',
     usdc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    weth: '0x2170Ed0880ac9A755fd29B2688956BD959F933F8',
+    busd: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
+    btcb: '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',
 
     /* LPs */
   },
