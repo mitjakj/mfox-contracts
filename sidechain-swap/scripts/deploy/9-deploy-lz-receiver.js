@@ -47,6 +47,14 @@ async function main() {
     tx = await receiver_bluechip.setTrustedRemoteAddress(constants.BSC.lzChainId, constants.BSC.bluechipVoter);
     await tx.wait();
     console.log("receiver_bluechip.setTrustedRemoteAddress");
+
+    tx = await receiver_voter.setVoter(addresses.voter);
+    await tx.wait();
+    console.log("receiver_voter.setVoter");
+
+    tx = await receiver_bluechip.setVoter(addresses.bluechipVoter);
+    await tx.wait();
+    console.log("receiver_bluechip.setVoter");
 }
 
 main()

@@ -22,7 +22,7 @@ contract Minter is IMinter, OwnableUpgradeable {
     uint public REBASEMAX;
     uint public constant PRECISION = 1000;
     uint public teamRate;
-    uint public constant MAX_TEAM_RATE = 50; // 5%
+    uint public constant MAX_TEAM_RATE = 250; // 25%
 
     uint public constant WEEK = 86400 * 7; // allows minting once per week (reset every Thursday 00:00 UTC)
     uint public weekly; // represents a starting weekly emission of 2.6M TOKEN (TOKEN has 18 decimals)
@@ -54,11 +54,11 @@ contract Minter is IMinter, OwnableUpgradeable {
       _initializer = msg.sender;
       team = msg.sender;
 
-      teamRate = 40; // 300 bps = 3%
+      teamRate = 250; // 300 bps = 3%
 
       EMISSION = 990;
       TAIL_EMISSION = 2;
-      REBASEMAX = 300;
+      REBASEMAX = 100;
 
       _token = IToken(IVotingEscrow(__ve).token());
       _voter = IVoter(__voter);
@@ -68,7 +68,7 @@ contract Minter is IMinter, OwnableUpgradeable {
 
 
       active_period = ((block.timestamp + (2 * WEEK)) / WEEK) * WEEK;
-      weekly = 2_600_000 * 1e18; // represents a starting weekly emission of 2.6M TOKEN (TOKEN has 18 decimals)
+      weekly = 151_100 * 1e18; // represents a starting weekly emission of 151_100 TOKEN (TOKEN has 18 decimals)
       isFirstMint = true;
     }
 
@@ -188,14 +188,14 @@ contract Minter is IMinter, OwnableUpgradeable {
             _rewards_distributor.checkpoint_token(); // checkpoint token balance that was just minted in rewards distributor
             _rewards_distributor.checkpoint_total_supply(); // checkpoint supply
 
-            uint _bluechip = _gauge * 50 / 100;
+            uint _bluechip = _gauge * 30 / 100;
             _gauge -= _bluechip;
 
-            // 50% to regular gauges -- managed by voters
+            // 70% to regular gauges -- managed by voters
             _token.approve(address(_voter), _gauge);
             _voter.notifyRewardAmount(_gauge);
 
-            // 50% to bluechip gauges -- managed by protocol owner
+            // 30% to bluechip gauges -- managed by protocol owner
             _token.approve(address(_bluechip_voter), _bluechip);
             _bluechip_voter.notifyRewardAmount(_bluechip);
 

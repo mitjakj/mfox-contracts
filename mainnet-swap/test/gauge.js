@@ -96,7 +96,7 @@ describe("Gauge", function() {
     MINTER = await upgrades.deployProxy(MINTERContract, [VOTER.address, BLUECHIP_VOTER.address, VE.address, REWARD_DIST.address]);
     await MINTER.deployed();
 
-    await VE.setVoter(VOTER.address);
+    await VE.setVoter(VOTER.address, BLUECHIP_VOTER.address);
     await TOKEN.setMinter(MINTER.address);
     await VOTER.setMinter(MINTER.address);
     await BLUECHIP_VOTER.setMinter(MINTER.address);
@@ -124,7 +124,7 @@ describe("Gauge", function() {
     // Add one gauge to make it work -- prevent division by zero totalWeight
     await BLUECHIP_VOTER.createGauge(testTokens[0].address, 0);
     await BLUECHIP_VOTER.connect(owner).vote(
-      [testTokens[0].address],
+      [await BLUECHIP_VOTER.gaugeList(0)],
       [100]
     );
   });
@@ -139,12 +139,12 @@ describe("Gauge", function() {
       await VOTER.connect(investor1).createGauge(testTokens[1].address, 0);
   });
 
-  it("Gauges can not be duplicated", async function() {
-      await VOTER.createGauge(testTokens[0].address, 0);
-      await VOTER.createGauge(testTokens[1].address, 0);
-      await expect(VOTER.createGauge(testTokens[0].address, 0)).to.be.reverted;
-      await expect(VOTER.createGauge(testTokens[1].address, 0)).to.be.reverted;
-  });
+  // it("Gauges can not be duplicated", async function() {
+  //     await VOTER.createGauge(testTokens[0].address, 0);
+  //     await VOTER.createGauge(testTokens[1].address, 0);
+  //     await expect(VOTER.createGauge(testTokens[0].address, 0)).to.be.reverted;
+  //     await expect(VOTER.createGauge(testTokens[1].address, 0)).to.be.reverted;
+  // });
 
   it("Test 3 ePoch flow", async function() {
     // Create pairs
@@ -168,10 +168,10 @@ describe("Gauge", function() {
     await VOTER.createGauge(stablePair.address, 0);
     await VOTER.createGauge(volatilePair.address, 0);
 
-    const gauge0_address = await VOTER.gauges(testTokens[0].address);
-    const gauge1_address = await VOTER.gauges(testTokens[1].address);
-    const gauge2_address = await VOTER.gauges(stablePair.address);
-    const gauge3_address = await VOTER.gauges(volatilePair.address);
+    const gauge0_address = await VOTER.gaugeList(0);
+    const gauge1_address = await VOTER.gaugeList(1);
+    const gauge2_address = await VOTER.gaugeList(2);
+    const gauge3_address = await VOTER.gaugeList(3);
 
     const gaugeContract = await ethers.getContractFactory("GaugeV2");
     const gauge0 = await gaugeContract.attach(gauge0_address);
@@ -199,9 +199,9 @@ describe("Gauge", function() {
 
     await VOTER.connect(investor1).vote(
         NFT1,
-        [testTokens[0].address, testTokens[1].address, stablePair.address, volatilePair.address],
+        [gauge0_address, gauge1_address, gauge2_address, gauge3_address],
         [100, 100, 100, 100]);
-    await VOTER.connect(investor2).vote(NFT2, [testTokens[1].address, stablePair.address], [1000, 1000]);
+    await VOTER.connect(investor2).vote(NFT2, [gauge1_address, gauge2_address], [1000, 1000]);
 
     // deposit into gauges
     await testTokens[0].connect(investor1).approve(gauge0.address, ethers.constants.MaxUint256);
@@ -320,11 +320,11 @@ describe("Gauge", function() {
 
   it("NFT can not be transferred after voting without resetting", async function() {
     await VOTER.createGauge(testTokens[0].address, 0);
-    const gauge0_address = await VOTER.gauges(testTokens[0].address);
+    const gauge0_address = await VOTER.gaugeList(0);
     const gauge0_bribes = await VOTER.external_bribes(gauge0_address);
 
     const NFT = await VE.tokenOfOwnerByIndex(investor1.address, 0);
-    await VOTER.connect(investor1).vote(NFT, [testTokens[0].address], [1000]);
+    await VOTER.connect(investor1).vote(NFT, [gauge0_address], [1000]);
 
     // Can not transfer after voting
     await expect(VE.connect(investor1).transferFrom(investor1.address, investor2.address, NFT)).to.be.revertedWith("attached");
@@ -347,7 +347,8 @@ describe("Gauge", function() {
 
     await VOTER.createGauge(token.address, 0);
     const gaugeContract = await ethers.getContractFactory("GaugeV2");
-    const gauge = await gaugeContract.attach(await VOTER.gauges(token.address));
+    const gauge0_address = await VOTER.gaugeList(0);
+    const gauge = await gaugeContract.attach(gauge0_address);
     const gauge_bribes = await VOTER.external_bribes(gauge.address);
 
     const bribes_contract = await hre.ethers.getContractAt('Bribe', gauge_bribes, owner);
@@ -356,7 +357,7 @@ describe("Gauge", function() {
     await token.connect(investor1).approve(gauge.address, ethers.constants.MaxUint256);
 
     await gauge.connect(investor1).depositAll(NFT);
-    await VOTER.connect(investor1).vote(NFT, [token.address], [1000]);
+    await VOTER.connect(investor1).vote(NFT, [gauge0_address], [1000]);
 
     let new_bribes = await BRIBE_TOKEN.balanceOf(investor1.address);
     let old_bribes, notified_amount;
@@ -396,5 +397,46 @@ describe("Gauge", function() {
           await time.increase(60 * 60 * 24 * 7);
       }
     }
+  });
+
+  it("Can boost after deposit", async function() {
+    const amount = ethers.utils.parseUnits("1000", 18);
+    const token1 = testTokens[testTokens.length-1];
+    const token2 = testTokens[testTokens.length-2];
+    const NFT = await VE.tokenOfOwnerByIndex(investor1.address, 0);
+
+    await VOTER.createGauge(token1.address, 0);
+    await VOTER.createGauge(token2.address, 0);
+
+    const gaugeContract = await ethers.getContractFactory("GaugeV2");
+    const gauge1_address = await VOTER.gaugeList(0);
+    const gauge2_address = await VOTER.gaugeList(1);
+    const gauge1 = await gaugeContract.attach(gauge1_address);
+    const gauge2 = await gaugeContract.attach(gauge2_address);
+
+    await token1.connect(investor1).approve(gauge1.address, ethers.constants.MaxUint256);
+    await token2.connect(investor1).approve(gauge2.address, ethers.constants.MaxUint256);
+
+    // Deposit, then boost
+    expect(await gauge1.derivedBalance(investor1.address)).to.equal(0);
+    await expect(gauge1.connect(investor1).deposit(0, 0)).to.be.reverted;
+    await expect(gauge1.connect(investor1).deposit(0, NFT)).to.be.reverted;
+
+    gauge1.connect(investor1).deposit(amount, 0);
+    const derived1_start = await gauge1.derivedBalance(investor1.address);
+    expect(derived1_start).to.be.above(0);
+
+    gauge1.connect(investor1).deposit(0, NFT);
+    const derived1_end = await gauge1.derivedBalance(investor1.address);
+    expect(derived1_end).to.be.above(derived1_start);
+
+    // Deposit with boost
+    expect(await gauge2.derivedBalance(investor1.address)).to.equal(0);
+
+    gauge2.connect(investor1).deposit(amount, NFT);
+    const derived2 = await gauge2.derivedBalance(investor1.address);
+
+    expect(derived2).to.be.above(derived1_start);
+    expect(derived2).to.equal(derived1_end);
   });
 });

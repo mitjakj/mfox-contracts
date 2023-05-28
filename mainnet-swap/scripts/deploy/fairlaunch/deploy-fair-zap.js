@@ -2,16 +2,15 @@ const hre = require("hardhat");
 
 async function main() {
     const addresses = hre.network.config.constants;
-    const ContractF = await hre.ethers.getContractFactory("OFT");
+    const ContractF = await hre.ethers.getContractFactory("FairlaunchZap");
     const contr = await ContractF.deploy(
-        'Phil', // string memory _name
-        'PH', // string memory _symbol
-        addresses.lzEndpoint, // address _lzEndpoint
+        addresses.wnative,
+        addresses.usdc,
     );
 
     await contr.deployed();
 
-    console.log("OFT deployed to: %saddress/%s", hre.network.config.explorer, contr.address);
+    console.log("FairlaunchZap deployed to: %saddress/%s", hre.network.config.explorer, contr.address);
 }
 
 main()

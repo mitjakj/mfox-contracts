@@ -1,87 +1,131 @@
 module.exports = {
   BSC: {
-    /* general */
-    weth: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
-    usdt: '0x55d398326f99059fF775485246999027B3197955',
-    usdc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-
-    /* LPs */
-    foxLP_volatile_PH_WBNB: '0xEe30CfE5B70aAa6e1cFA6EE954DDE14207D4f56B',
-    foxLP_stable_USDC_USDT: '0x9a1A1ceC68001e0685B10d60784828b8ffdCEb0e',
-    foxLP_stable_USDC_WBNB: '0x13665cFA782dE4AFed5B3806b6F5EB4eCCcFbb78',
-
     /* swap */
-    pairFactory: '0x6b289f7f98b083f58885B2901b07a308FC4f7995', 
-    swapRouter: '0x491165C79BF3E09B1A240c3b2588A6Db20D10F5A', 
+    pairFactory: '0xcEDa3234D7D5b36114d886682A399c6d126A03e0', 
+    swapRouter: '0x4F9DB343b8b1091C19DF71472E335B22aADFA0cF', 
 
     /* token */
-    token: '0xf83C6b4D7cbE88503ee36849b5bD19830A6170B9', 
-    proxyOFT: '0x52Cb3c8882C7D22Ec783207994D51FFAbef71067', 
-    veArt: '0xC40c59364CB5CA8540f1EB402F4350FfCFB8C0b1', 
-    veToken: '0xfB7c10D38acbda7DfB464f3781725ffd701B00Ec', 
+    token: '0x84E0a246DD437d911989E89667816A9Ed97a1284', 
+    proxyOFT: '0xCAB0838EAF7C34ba8C6713b7f395c36df33A1c54', 
+    veArt: '0x79c86a3E7921Bea8b2344eDB0A34Ef1e22aa73C8', 
+    veToken: '0x4b749A14e8A1cC008eD7c89F7652537065191bbd', 
 
-    /* presale */
-    presale: '0x59433FF533bcEf95b2b543b13fa31Ee056E0469a', 
-    treasury: '0x1bb1C670dC4317751a39EDa11Dc50E1231583306', 
-    shroom: '0x827D4BE081b7bB2a1e3338d56F4197f31DfD6250', 
-    veShroom: '0xD588e41f409B0062647EaBB6cC09e35D6d93AC70', 
+    /* fairlaunch */
+    fairlaunch: '0x2498F6668b7970F42e4AB93d50E501e5ed513264', 
+    fairlaunchZap: '0xcb8Edbe8028A026cED02b1160e43166B62305beF', 
+    treasury: '0x0b013649982c9f2623eC15d4fFF62EC1cB6Dc8e5', 
+    shroom: '0x967F4B82D8B7eD38f655CCf084150180c8165AC5', 
+    veShroom: '0x6a07Cc5C621d8A1f8Ce25f449B49FaAD5dCBb8Ee', 
 
     /* chainlink */
-    chainlinkEpochController: '0xd77903eD23A32447784BbCE01E7c067219785F78',
-    chainlinkWeeklyEmissionBridge: '0xff26C390EAF5F0aC56ea1484322d7138a4b351Cd',
+    chainlinkEpochController: '0x7c5106bd2C1cC55b17A0F384B5C7E2C67121CcBA',
+    chainlinkWeeklyEmissionBridge_ARBITRUM: '0xD1Bb06d224d4193D3b8db1558d7e3F2B1711efbE',
+    chainlinkWeeklyEmissionBridge_POLYGON: '0x66D95d405e157fb199565F2fB127453649A3C003',
+    bluechipFeeCollector: '0xa2d23C7Ca6D360D5B0b30CaFF79dbBfa242B4811', 
+    voterFeeClaimer: '0x4a36b507D1b5a17dDFa16044E922D15625871310', 
 
     /* dao */
-    bribeFactory: '0x9C1E5171987E3e11d2Bc5C1f39EA49573b9e0150', 
-    gaugeFactory: '0xE20e960743A8D5aeB7f9Af695797A0881bf8c9FD', 
-    voter: '0x03D8b7D195b98D1526f149ff99527875fD18E4C6', // !!!! VERIFY IN CODE HARD-CODED LZ ENDPOINT ADDRESS !!!!
-    bluechipVoter: '0xfa9092C5094D84829342FcA675d2b289e5D16014',  // !!!! VERIFY IN CODE HARD-CODED LZ ENDPOINT ADDRESS !!!!
-    bluechipFeeCollector: '0x83F55e1E85e2a06520C8f82Ec51C3D93D28F60B1', 
-    rewardDistributorToken: '0xC707Bd564d6B71D236205720b5D074E5E548e611', 
-    rewardDistributorUsdc: '', 
-    minter: '0xdf61552195e02De3C86e2D88e50c29C559692985', 
+    bribeFactory: '0x2295277c1AE8314387289E7E506407B9332c1500', 
+    gaugeFactory: '0x69B62Fc3Ab3c1571E47CD3bc8A86E91426667914', 
+    voter: '0xF2Fc2b5950f323ad90A210f9f1264392261d3Ae9', // !!!! VERIFY IN CODE HARD-CODED LZ ENDPOINT ADDRESS !!!!
+    bluechipVoter: '0x8C246E013C719070c902544B4d27f104a82A15f9',  // !!!! VERIFY IN CODE HARD-CODED LZ ENDPOINT ADDRESS !!!!
+    rewardDistributorToken: '0xeF6567279F6dF45d01601D78c21BAB3ffc469533', 
+    rewardDistributorUsdc: '0xBd7A8c05D0eB214e3C5cc63D4B77C2Ea38bDe440', 
+    minter: '0x3Ab6c1800B7878be6E890798C9F0282c8AA43E39', 
 
     /* LZ */
     lzChainId: 102,
     lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
 
     /* UpgradableContracts admin */
-    timelocker: '0x5d0d83EF1C1f8217cbD0D3D0802E47B8Bcd72207',
-    proxyAdmin: '0x86E00171EA53d56CCB1C2e62006Bb4e0F8a1f83D' // still need to transfer ownership from deployer to timelocker
+    timelocker: '',
+    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+
+    /* ERC20 */
+    wnative: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+    wbnb: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+    usdt: '0x55d398326f99059fF775485246999027B3197955',
+    usdc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    weth: '0x2170Ed0880ac9A755fd29B2688956BD959F933F8',
+    busd: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
+    btcb: '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',
+
+    /* LPs */
   },
 
   ARBITRUM: {
-    /* general */
-    weth: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
-    usdt: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-    usdc: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
-
-    foxLP_volatile_PH_WETH: '0xE78988BB01A6d4C92387018F6B64A84CaE2999bb',
-    foxLP_volatile_PH_USDC: '0xA55aC49Eb59A059bF9dCEAA35357daf49644BE6E',
-
     /* swap */
-    pairFactory: '0x6CE2738Ce9903111869C1dd23e4286B1d9992344', 
-    swapRouter: '0xb1e5a5451c770438D24d4b22Ffb83d602b374d10', 
+    pairFactory: '0xBd7A8c05D0eB214e3C5cc63D4B77C2Ea38bDe440', 
+    swapRouter: '0x1F7aA9F33803c4ea440dE3fAF6E0FFa4f5E45eb6', 
 
     /* token */
-    token: '0x491165C79BF3E09B1A240c3b2588A6Db20D10F5A', 
-    veArt: '0xF26b7535e3c64d669356906BE30AA1bB174781A9', 
-    veToken: '0xf83C6b4D7cbE88503ee36849b5bD19830A6170B9', 
+    token: '0x84E0a246DD437d911989E89667816A9Ed97a1284', 
+    veToken: '0x4b749A14e8A1cC008eD7c89F7652537065191bbd', 
+
+    /* chainlink */
+    bluechipFeeCollector: '0xfC282bc7004DF6d1ec342A676354575dcd4EE974', 
+    voterFeeClaimer: '0x2746655AfE725CA114a45D3fadF08f10fB0bb57a', 
 
     /* dao */
-    bribeFactory: '0x4e5096367E3D2e95e002678D0b15D2134F9b87Bf', 
-    gaugeFactory: '0xFaf27189a995833ea41c102484396c060E04F62F', 
-    voter: '0x47b172489AfC7721BC12531441b885b9d81A0bb8',
-    bluechipVoter: '0xbB1883802aaE1921BD859E3815BfC161e7846587',
-    bluechipFeeCollector: '0x83F55e1E85e2a06520C8f82Ec51C3D93D28F60B1', 
-    lzReceiver: '0x0Efb224d2366415f7522826DFdfb0a9379Ec37fA', 
-    lzReceiverBluechip: '0xE58a0e5BC457245F5002a9BaF212d8cA772B22D8', 
+    bribeFactory: '0x298e40a026F4db34b57CBDB7c5F22f2d9BaF935d', 
+    gaugeFactory: '0xd614F630F18602dDd08b41728058E94427475cd5', 
+    voter: '0x6a07Cc5C621d8A1f8Ce25f449B49FaAD5dCBb8Ee',
+    bluechipVoter: '0xcb8Edbe8028A026cED02b1160e43166B62305beF',
+    lzReceiver: '0xAFD9748AAD1ceC527723f5104B9D9Ad94d7DE0A7', 
+    lzReceiverBluechip: '0x2498F6668b7970F42e4AB93d50E501e5ed513264', 
 
     /* LZ */
     lzChainId: 110,
     lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
 
     /* UpgradableContracts admin */
-    timelocker: '0x5d0d83EF1C1f8217cbD0D3D0802E47B8Bcd72207',
-    proxyAdmin: '0x4bA2d7200f50A53Be0d6572e5C9df53BB53eA6C6' // still need to transfer ownership from deployer to timelocker
+    timelocker: '',
+    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+
+    /* ERC20 */
+    wnative: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    weth: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    usdt: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    usdc: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+
+    /* LPs */
+  },
+
+  POLYGON: {
+    /* swap */
+    pairFactory: '0xa2d23C7Ca6D360D5B0b30CaFF79dbBfa242B4811', 
+    swapRouter: '0x76Ae45f981d7Ab80B56d29920ac13DCcd2a6C866', 
+
+    /* token */
+    token: '0x84E0a246DD437d911989E89667816A9Ed97a1284', 
+    veToken: '0x851e951FD4Fb85710002C76376F7Fd5d9cff61A4', 
+
+    /* chainlink */
+    bluechipFeeCollector: '0xeBF77693c6531546E79c2D3426D541270bCDb434', 
+    voterFeeClaimer: '0xC82AAfB906ecB40f3cfF3675391f0b370c66afcf', 
+
+    /* dao */
+    bribeFactory: '', 
+    gaugeFactory: '0x79c86a3E7921Bea8b2344eDB0A34Ef1e22aa73C8', 
+    voter: '0xfC282bc7004DF6d1ec342A676354575dcd4EE974',
+    bluechipVoter: '0x41c42D2AA40013962d1C184a47606e4718259ff8',
+    lzReceiver: '0x6a07Cc5C621d8A1f8Ce25f449B49FaAD5dCBb8Ee', 
+    lzReceiverBluechip: '0xcb8Edbe8028A026cED02b1160e43166B62305beF', 
+
+    /* LZ */
+    lzChainId: 109,
+    lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
+
+    /* UpgradableContracts admin */
+    timelocker: '',
+    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+
+    /* ERC20 */
+    wnative: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
+    wmatic: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
+    usdt: '',
+    usdc: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+
+    /* LPs */
   }
 };

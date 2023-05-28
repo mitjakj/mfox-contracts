@@ -16,7 +16,7 @@ interface solidly_router {
 
 contract solidly_library {
 
-    solidly_router constant internal router = solidly_router(0xd4ae6eCA985340Dd434D38F470aCCce4DC78D109);
+    solidly_router constant internal router = solidly_router(0xd0f4f8b8cEd19E82b8461ada452fF9B116E5F717);
 
     function _f(uint x0, uint y) internal pure returns (uint) {
         return x0*(y*y/1e18*y/1e18)/1e18+(x0*x0/1e18*x0/1e18)*y/1e18;

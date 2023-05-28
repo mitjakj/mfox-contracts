@@ -16,6 +16,7 @@ module.exports = {
   etherscan: {
     apiKey: {
        bsc: secret.bscScanAPI,
+       arbitrumOne: secret.arbScanAPI,
      }
   },
     // solidity: "0.6.12",
@@ -86,6 +87,15 @@ module.exports = {
           accounts: [secret.privateKeyMainnet],
           explorer: 'https://arbiscan.io/',
           constants: constants.ARBITRUM
+        },
+        polygon: {
+          url: `https://polygon-mainnet.g.alchemy.com/v2/${secret.alchemyPOLYGON}`,
+          chainId: 137,
+          gasPrice: 500000000000, // 500 gwei
+          gas: 8000000,
+          accounts: [secret.privateKeyMainnet],
+          explorer: 'https://polygonscan.com/',
+          constants: constants.POLYGON
         },
     },
     abiExporter: {
