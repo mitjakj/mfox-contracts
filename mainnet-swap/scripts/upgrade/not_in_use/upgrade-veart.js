@@ -5,7 +5,7 @@ async function main() {
   const addresses = hre.network.config.constants;
   const deployer = (await hre.ethers.getSigners())[0];
 
-  const ART = await hre.ethers.getContractFactory("VeArt"); // VeArtFox and VeArtShroom
+  const ART = await hre.ethers.getContractFactory("VeArtFox"); // VeArtFox and VeArtShroom
   const upgraded = await upgrades.upgradeProxy(addresses.veArt, ART);
 
   console.log(
