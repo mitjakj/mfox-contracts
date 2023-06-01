@@ -154,6 +154,12 @@ module.exports = {
       chainId: constants.POLYGON.lzChainId,
       sideGauge: '0xa3F64FE55fA0084ff4C3aA874a3e13A0a04393f7',
     },
+    pool27: {
+      // POLYGON vAMM_ACS_WMATIC
+      gauge: '0x1103a0b590A15C985a28f28F314d42Fb67c57A51',
+      chainId: constants.POLYGON.lzChainId,
+      sideGauge: '0x43e70273A9259f835F6630F3FdcECA6996242eEA',
+    },
   },
 
   /**
