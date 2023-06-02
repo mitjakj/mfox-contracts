@@ -41,8 +41,9 @@ module.exports = {
     lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
 
     /* UpgradableContracts admin */
-    timelocker: '',
-    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+    // timelocker_30sec_old: '0xa14F352937CB267aD61dbEEc915240b9dff7623c',
+    timelocker: '0x56c11006Fce73A07A39C06ef6Efa0bc226035fD6',
+    proxyAdmin: '0xd053a8E6D2bEA3c5b32E20E6c0D96dda2fbD0621', // still need to transfer ownership from deployer to timelocker
 
     /* ERC20 */
     wnative: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
@@ -93,8 +94,8 @@ module.exports = {
     lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
 
     /* UpgradableContracts admin */
-    timelocker: '',
-    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+    timelocker: '0x4F9DB343b8b1091C19DF71472E335B22aADFA0cF',
+    proxyAdmin: '0x79c86a3E7921Bea8b2344eDB0A34Ef1e22aa73C8', // still need to transfer ownership from deployer to timelocker
 
     /* ERC20 */
     wnative: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
@@ -144,8 +145,8 @@ module.exports = {
     lzEndpoint: '0x3c2269811836af69497E5F486A85D7316753cf62',
 
     /* UpgradableContracts admin */
-    timelocker: '',
-    proxyAdmin: '', // still need to transfer ownership from deployer to timelocker
+    timelocker: '0xe6929972bFae2B5dd951573c92df78963236Ae40',
+    proxyAdmin: '0xCAB0838EAF7C34ba8C6713b7f395c36df33A1c54', // still need to transfer ownership from deployer to timelocker
 
     /* ERC20 */
     wnative: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
