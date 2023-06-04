@@ -18,7 +18,7 @@ module.exports = {
     treasury: '0x0b013649982c9f2623eC15d4fFF62EC1cB6Dc8e5', 
     shroom: '0x967F4B82D8B7eD38f655CCf084150180c8165AC5', 
     veShroom: '0x6a07Cc5C621d8A1f8Ce25f449B49FaAD5dCBb8Ee', 
-    lockWithBonus: '',
+    lockWithBonus: '0xC8bD551A4C245640B137e8Cf9C7cAE8D46ac956e',
 
     /* chainlink */
     chainlinkEpochController: '0x7c5106bd2C1cC55b17A0F384B5C7E2C67121CcBA',
