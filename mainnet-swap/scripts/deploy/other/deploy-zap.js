@@ -5,6 +5,7 @@ async function main() {
     const ContractF = await hre.ethers.getContractFactory("MagicZap");
     const contr = await ContractF.deploy(
         addresses.swapRouter,
+        addresses.fairlaunchBonusTreasury,
         addresses.veToken,
         addresses.veShroom
     );

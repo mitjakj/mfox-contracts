@@ -12,7 +12,7 @@ import "./interfaces/IGauge.sol";
 import "./interfaces/IVotingEscrow.sol";
 import "hardhat/console.sol";
 
-contract MagicZap is ReentrancyGuard {
+contract MagicZap is Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
   IRouter public router;
@@ -22,6 +22,10 @@ contract MagicZap is ReentrancyGuard {
   IVotingEscrow public immutable VE_SHROOM; // veSHROOM token contract
   IERC20 public immutable FOX; // FOX token contract
   IERC20 public immutable SHROOM; // SHROOM token contract
+
+  address public immutable treasury; 
+  uint8 public bonus = 30; // 30%
+  uint internal constant WEEK = 1 weeks;
 
   struct BalanceLocalVars {
     uint256 amount0;
@@ -38,12 +42,14 @@ contract MagicZap is ReentrancyGuard {
 
   constructor(
     address _router,
+    address _treasury,
     IVotingEscrow veFoxToken,
     IVotingEscrow veShroomToken
   ) {
     router = IRouter(_router);
     factory = IPairFactory(router.factory());
     wnative = router.weth();
+    treasury = _treasury;
     VE_FOX = veFoxToken;
     VE_SHROOM = veShroomToken;
     SHROOM = IERC20(VE_SHROOM.token());
@@ -65,7 +71,7 @@ contract MagicZap is ReentrancyGuard {
     IRouter.route[] calldata path0,
     IRouter.route[] calldata path1,
     bool stable
-  ) external view returns (uint256[2] memory minAmountsSwap, uint256[2] memory minAmountsLP) {
+  ) external view returns (uint256[2] memory minAmountsSwap, uint256[3] memory minAmountsLP) {
     require(path0.length > 0 || path1.length > 0, "Zap: Needs at least one path");
 
     uint256 inputAmountHalf = inputAmount / 2;
@@ -85,10 +91,10 @@ contract MagicZap is ReentrancyGuard {
     address token0 = path0.length == 0 ? path1[0].to : path0[path0.length - 1].to;
     address token1 = path1.length == 0 ? path0[0].to : path1[path1.length - 1].to;
 
-    (uint amountA, uint amountB,) = router.quoteAddLiquidity(token0, token1, stable, minAmountSwap0, minAmountSwap1);
+    (uint amountA, uint amountB, uint liquidity) = router.quoteAddLiquidity(token0, token1, stable, minAmountSwap0, minAmountSwap1);
 
     minAmountsSwap = [minAmountSwap0, minAmountSwap1];
-    minAmountsLP = [amountA, amountB];
+    minAmountsLP = [amountA, amountB, liquidity];
   }
 
   function zapFoxStakeNative(
@@ -221,6 +227,18 @@ contract MagicZap is ReentrancyGuard {
       vars.balanceBefore = _getBalance(FOX);
       router.swapExactTokensForTokens(vars.amount0, minAmounts[0], pathVeFox, address(this), deadline);
       vars.amount0 = _getBalance(FOX) - vars.balanceBefore;
+      
+      // Add check for bonus
+      if (bonus > 0) {
+        uint unlock_time = (block.timestamp + stakeLength) / WEEK * WEEK; // Locktime is rounded down to weeks
+        if (unlock_time > block.timestamp + 356 days) {
+          // Add bonus
+          uint256 veTokenBonus = vars.amount0 * bonus / 100;
+          FOX.safeTransferFrom(treasury, address(this), veTokenBonus);
+          vars.amount0 += veTokenBonus;
+        }
+      }
+      
       VE_FOX.create_lock_for(vars.amount0, stakeLength, to);
     }
 
@@ -232,6 +250,18 @@ contract MagicZap is ReentrancyGuard {
       vars.balanceBefore = _getBalance(SHROOM);
       router.swapExactTokensForTokens(vars.amount1, minAmounts[1], pathVeShroom, address(this), deadline);
       vars.amount1 = _getBalance(SHROOM) - vars.balanceBefore;
+
+      // Add check for bonus
+      if (bonus > 0) {
+        uint unlock_time = (block.timestamp + stakeLength) / WEEK * WEEK; // Locktime is rounded down to weeks
+        if (unlock_time > block.timestamp + 356 days) {
+          // Add bonus
+          uint256 veTokenBonus = vars.amount1 * bonus / 100;
+          SHROOM.safeTransferFrom(treasury, address(this), veTokenBonus);
+          vars.amount1 += veTokenBonus;
+        }
+      }
+
       VE_SHROOM.create_lock_for(vars.amount1, stakeLength, to);
     }
   }
@@ -411,5 +441,13 @@ contract MagicZap is ReentrancyGuard {
     } else {
       IERC20(token).safeTransfer(msg.sender, amount);
     }
+  }
+
+  function setBonus(uint8 _bonus)
+    external
+    onlyOwner()
+  {
+    require(_bonus >= 0 && _bonus <= 100, "bonus can be in range 0 - 100");
+    bonus = _bonus;
   }
 }
