@@ -160,6 +160,38 @@ module.exports = {
       chainId: constants.POLYGON.lzChainId,
       sideGauge: '0x43e70273A9259f835F6630F3FdcECA6996242eEA',
     },
+    pool28: {
+      // ARBITRUM sAMM_USX_USDC
+      gauge: '0x4f5B242925606B7524454771904514477030BDd0',
+      chainId: constants.ARBITRUM.lzChainId,
+      sideGauge: '0xcF6dA33b33478D9a6350E35D0211926E1f8ACc3d',
+    },
+    pool29: {
+      // ARBITRUM vAMM_TAROT_WETH
+      gauge: '0xBa77fCc2676a084478418cB12308Ff980c5bE620',
+      chainId: constants.ARBITRUM.lzChainId,
+      sideGauge: '0x5f874396e47ea5D9fFe1a3806C8624601Ef1Bf21',
+    },
+    pool30: {
+      // ARBITRUM sAMM_USD+_DAI+
+      gauge: '0xe6D007a8a8dFD8bad44e3010E65Aa15437d1D35e',
+      chainId: constants.ARBITRUM.lzChainId,
+      sideGauge: '0x1291940E15c03b7D20Bb2E71e8D16544681Bf9D9',
+    },
+    pool31: {
+      // foxLP_volatile_TAROT_WBNB
+      gauge: '0x7f9B8783B46caA05b6a7162e3D5d3d57Bf60C209',
+    },
+    pool32: {
+      // foxLP_stable_USDT+_USD+
+      gauge: '0x5b77295CF63d695778035a6DB510ac1F5Ad5D23B',
+    },
+    pool33: {
+      // POLYGON vAMM_USDC_SPHERE
+      gauge: '0x80a0846097D7C16F7eaefaD4Ed5DA2D7Cb762Db3',
+      chainId: constants.POLYGON.lzChainId,
+      sideGauge: '0xD0F7914C51943F8E17Ddc9d7634a42e26564efaD',
+    },
   },
 
   /**
